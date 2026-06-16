@@ -267,14 +267,18 @@ class TextEmbedder:
         Gracefully handles missing values with neutral defaults.
         """
         def safe_float(val: object, default: float = 0.0) -> float:
+            import math
             try:
-                return float(val)
+                f = float(val)
+                if math.isnan(f):
+                    return default
+                return f
             except (TypeError, ValueError):
                 return default
 
         return PROFILE_TEMPLATE.format(
             name=row.get("player", "Unknown Player"),
-            age=int(safe_float(row.get("age", 0), 25)),
+            age=int(safe_float(row.get("age", None), 25)),
             position=row.get("pos", "Unknown Position"),
             club=row.get("squad", "Unknown Club"),
             league=row.get("league", "Unknown League"),

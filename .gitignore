@@ -28,5 +28,8 @@ Thumbs.db
 # Large raw scraper caches (HTML cache)
 data/raw/html/
 
+# Local downloaded player images
+app/static/players/
+
 # Log files
 *.log

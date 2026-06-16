@@ -38,11 +38,16 @@ CSV_PATH = PROJECT_ROOT / "data" / "processed" / "players_merged.csv"
 STATIC_DIR = PROJECT_ROOT / "app" / "static" / "players"
 
 # Wikimedia requires a descriptive User-Agent for API calls
-WIKI_HEADERS = {
-    "User-Agent": "FootScout/1.0 (BHT Berlin DS Workflow Master Project; educational use; https://github.com/sina-778/footscout)",
-    "Accept": "image/jpeg,image/png,image/webp,*/*;q=0.8",
-    "Referer": "https://en.wikipedia.org/"
-}
+import random
+
+def get_wiki_headers():
+    project_id = random.randint(100, 999)
+    return {
+        "User-Agent": f"FootScout-Scraper/{project_id} (Educational data science project; contact: student-scout-dev{project_id}@bht-berlin.de)",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://en.wikipedia.org/"
+    }
 
 WIKI_API_URL = "https://en.wikipedia.org/w/api.php"
 
@@ -56,7 +61,6 @@ def safe_filename(name: str) -> str:
 
 def fetch_wiki_image_url(player_name: str) -> str | None:
     """Query Wikipedia API to get the best image URL for a player."""
-    # Try exact search first, then fuzzy
     for search_term in [player_name, player_name.split()[-1]]:
         params = {
             "action": "query",
@@ -68,26 +72,41 @@ def fetch_wiki_image_url(player_name: str) -> str | None:
             "piprop": "original",
             "pilicense": "any"
         }
-        try:
-            r = requests.get(WIKI_API_URL, params=params, headers=WIKI_HEADERS, timeout=12)
-            if r.status_code != 200:
-                continue
-            data = r.json()
-            pages = data.get("query", {}).get("pages", {})
-            for page_data in pages.values():
-                source = page_data.get("original", {}).get("source")
-                if not source:
+        
+        # Retry with exponential backoff
+        retries = 3
+        backoff = 2
+        for attempt in range(retries):
+            try:
+                headers = get_wiki_headers()
+                r = requests.get(WIKI_API_URL, params=params, headers=headers, timeout=12)
+                if r.status_code == 429:
+                    logger.warning("Wikimedia rate limit (429) on search '%s'. Backing off %ds...", search_term, backoff)
+                    time.sleep(backoff)
+                    backoff *= 2
                     continue
-                source_lower = source.lower()
-                # Filter out logos, flags, crests, icons
-                if any(x in source_lower for x in [
-                    ".svg", "flag_", "logo_", "_logo", "shield", "crest",
-                    "coat_of_arms", "emblem", "badge", "jersey", "_kit"
-                ]):
-                    continue
-                return source
-        except Exception as e:
-            logger.debug("Wiki API error for '%s': %s", player_name, e)
+                if r.status_code != 200:
+                    break
+                    
+                data = r.json()
+                pages = data.get("query", {}).get("pages", {})
+                for page_data in pages.values():
+                    source = page_data.get("original", {}).get("source")
+                    if not source:
+                        continue
+                    source_lower = source.lower()
+                    # Filter out logos, flags, crests, icons
+                    if any(x in source_lower for x in [
+                        ".svg", "flag_", "logo_", "_logo", "shield", "crest",
+                        "coat_of_arms", "emblem", "badge", "jersey", "_kit"
+                    ]):
+                        continue
+                    return source
+                break
+            except Exception as e:
+                logger.debug("Wiki API error for '%s' (attempt %d): %s", player_name, attempt, e)
+                time.sleep(1)
+        time.sleep(0.1)
     return None
 
 
@@ -107,31 +126,41 @@ def download_image(player_name: str, url: str, output_dir: Path) -> str | None:
     if local_path.exists() and local_path.stat().st_size > 5000:
         return str(local_path)
     
-    try:
-        r = requests.get(url, headers=WIKI_HEADERS, timeout=20, stream=True)
-        if r.status_code == 200:
-            content_type = r.headers.get("Content-Type", "")
-            if "image" not in content_type and "jpeg" not in content_type:
-                logger.warning("  Non-image content-type for %s: %s", player_name, content_type)
+    retries = 3
+    backoff = 2
+    for attempt in range(retries):
+        try:
+            headers = get_wiki_headers()
+            r = requests.get(url, headers=headers, timeout=20, stream=True)
+            if r.status_code == 429:
+                logger.warning("Wikimedia rate limit (429) on image download for '%s'. Backing off %ds...", player_name, backoff)
+                time.sleep(backoff)
+                backoff *= 2
+                continue
+            if r.status_code == 200:
+                content_type = r.headers.get("Content-Type", "")
+                if "image" not in content_type and "jpeg" not in content_type:
+                    logger.warning("  Non-image content-type for %s: %s", player_name, content_type)
+                    return None
+                
+                with open(local_path, "wb") as f:
+                    for chunk in r.iter_content(chunk_size=8192):
+                        f.write(chunk)
+                
+                size = local_path.stat().st_size
+                if size < 2000:
+                    local_path.unlink()
+                    return None
+                
+                logger.info("  ✅ Downloaded %s (%.1f KB)", player_name, size / 1024)
+                return str(local_path)
+            else:
+                logger.debug("  ❌ HTTP %d for %s", r.status_code, player_name)
                 return None
-            
-            with open(local_path, "wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-            
-            size = local_path.stat().st_size
-            if size < 2000:
-                local_path.unlink()
-                return None
-            
-            logger.debug("  ✅ Downloaded %s (%.1f KB)", player_name, size / 1024)
-            return str(local_path)
-        else:
-            logger.debug("  ❌ HTTP %d for %s", r.status_code, player_name)
-            return None
-    except Exception as e:
-        logger.debug("  Error downloading %s: %s", player_name, e)
-        return None
+        except Exception as e:
+            logger.debug("  Error downloading %s (attempt %d): %s", player_name, attempt, e)
+            time.sleep(1)
+    return None
 
 
 def process_player(player_name: str, existing_url, output_dir: Path) -> tuple[str, str | None, str | None]:
@@ -151,6 +180,8 @@ def process_player(player_name: str, existing_url, output_dir: Path) -> tuple[st
     if not wiki_url:
         wiki_url = fetch_wiki_image_url(player_name)
     
+    time.sleep(0.3)  # polite rate-limiting delay between searches/downloads
+    
     if not wiki_url:
         return player_name, None, None
     
@@ -159,6 +190,8 @@ def process_player(player_name: str, existing_url, output_dir: Path) -> tuple[st
 
 
 def main():
+    import sys
+    force = "--force" in sys.argv
     STATIC_DIR.mkdir(parents=True, exist_ok=True)
     
     if not CSV_PATH.exists():
@@ -168,52 +201,38 @@ def main():
     df = pd.read_csv(CSV_PATH)
     logger.info("Loaded %d players from %s", len(df), CSV_PATH.name)
     
-    # Build work items
-    existing_urls = {}
-    if "image_url" in df.columns:
-        existing_urls = dict(zip(df["player"], df["image_url"].where(df["image_url"].notna(), None)))
-    
-    players = df["player"].dropna().tolist()
-    total = len(players)
-    
-    logger.info("Processing %d players with 15 parallel workers...", total)
-    logger.info("Images will be saved to: %s", STATIC_DIR)
-    
-    results: dict[str, dict] = {}
-    
-    with ThreadPoolExecutor(max_workers=15) as executor:
-        futures = {
-            executor.submit(
-                process_player,
-                name,
-                existing_urls.get(name),
-                STATIC_DIR
-            ): name
-            for name in players
-        }
+    if "image_url" not in df.columns:
+        df["image_url"] = None
+    if "local_image_path" not in df.columns:
+        df["local_image_path"] = None
         
-        completed = 0
-        success = 0
-        for future in as_completed(futures):
-            name, wiki_url, local_path = future.result()
-            results[name] = {
-                "image_url": wiki_url,
-                "local_image_path": local_path
-            }
-            if local_path:
-                success += 1
-            completed += 1
-            if completed % 30 == 0 or completed == total:
-                logger.info(
-                    "Progress: %d/%d complete, %d images downloaded",
-                    completed, total, success
-                )
+    # Build list of players who need processing
+    if force:
+        players_to_process = df["player"].dropna().tolist()
+        logger.info("Force processing all %d players...", len(players_to_process))
+    else:
+        # Check if local_image_path is valid and file exists
+        def needs_download(row):
+            path = row.get("local_image_path")
+            if pd.isna(path) or not isinstance(path, str) or not path.strip():
+                return True
+            full_p = PROJECT_ROOT / path
+            return not full_p.exists() or full_p.stat().st_size < 5000
+            
+        mask = df.apply(needs_download, axis=1)
+        players_to_process = df.loc[mask, "player"].dropna().tolist()
+        logger.info(
+            "Found %d players already have valid local images. Processing remaining %d players...",
+            len(df) - len(players_to_process),
+            len(players_to_process)
+        )
+        
+    if not players_to_process:
+        logger.info("All players already have images. Done!")
+        return
+        
+    existing_urls = dict(zip(df["player"], df["image_url"].where(df["image_url"].notna(), None)))
     
-    # Update DataFrame
-    df["image_url"] = df["player"].map(lambda n: results.get(n, {}).get("image_url"))
-    df["local_image_path"] = df["player"].map(lambda n: results.get(n, {}).get("local_image_path"))
-    
-    # Convert local paths to relative paths from project root (NaN-safe)
     def _to_relative(p) -> str | None:
         if p is None or not isinstance(p, str) or not p.strip():
             return None
@@ -222,18 +241,48 @@ def main():
         except Exception:
             return p
 
-    df["local_image_path"] = df["local_image_path"].apply(_to_relative)
+    completed = 0
+    success = 0
+    total = len(players_to_process)
     
-    df.to_csv(CSV_PATH, index=False)
-    
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        futures = {
+            executor.submit(
+                process_player,
+                name,
+                existing_urls.get(name),
+                STATIC_DIR
+            ): name
+            for name in players_to_process
+        }
+        
+        for future in as_completed(futures):
+            name, wiki_url, local_path = future.result()
+            rel_path = _to_relative(local_path)
+            
+            # Update DataFrame in memory
+            idx = df["player"] == name
+            df.loc[idx, "image_url"] = wiki_url
+            df.loc[idx, "local_image_path"] = rel_path
+            
+            if local_path:
+                success += 1
+            completed += 1
+            
+            # Save progressively every 30 players
+            if completed % 30 == 0 or completed == total:
+                df.to_csv(CSV_PATH, index=False)
+                logger.info(
+                    "Progress: %d/%d complete, %d images downloaded | Progress saved to CSV",
+                    completed, total, success
+                )
+                
     success_count = df["local_image_path"].notna().sum()
     logger.info(
         "\n✅ Done! %d/%d players have local images (%.1f%% coverage)",
-        success_count, total,
-        100 * success_count / total
+        success_count, len(df),
+        100 * success_count / len(df)
     )
-    logger.info("Saved updated CSV to %s", CSV_PATH)
-    logger.info("Images stored in %s", STATIC_DIR)
 
 
 if __name__ == "__main__":

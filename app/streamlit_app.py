@@ -391,8 +391,66 @@ FLAG_MAP = {
     "UAE": "ae", "QAT": "qa", "AUS": "au", "NZL": "nz", "IND": "in",
     "IRQ": "iq", "JOR": "jo", "LBN": "lb", "SYR": "sy",
     # Others
-    "IRL": "ie", "KAZ": "kz",
+    "IRL": "ie", "KAZ": "kz", "CUW": "cw", "UZB": "uz",
 }
+
+
+
+
+# Full country name labels for UI display
+NATION_LABELS = {
+    "ENG": "England 🏴󠁧󠁢󠁥󠁮󠁧󠁿", "SCO": "Scotland 🏴󠁧󠁢󠁳󠁣󠁴󠁿", "WAL": "Wales 🏴󠁧󠁢󠁷󠁬󠁳󠁿", "IRL": "Ireland 🇮🇪",
+    "ESP": "Spain 🇪🇸", "GER": "Germany 🇩🇪", "FRA": "France 🇫🇷", "ITA": "Italy 🇮🇹",
+    "POR": "Portugal 🇵🇹", "NED": "Netherlands 🇳🇱", "BEL": "Belgium 🇧🇪",
+    "SUI": "Switzerland 🇨🇭", "AUT": "Austria 🇦🇹", "POL": "Poland 🇵🇱",
+    "CZE": "Czech Republic 🇨🇿", "SVK": "Slovakia 🇸🇰", "SVN": "Slovenia 🇸🇮",
+    "CRO": "Croatia 🇭🇷", "SRB": "Serbia 🇷🇸", "DEN": "Denmark 🇩🇰",
+    "NOR": "Norway 🇳🇴", "SWE": "Sweden 🇸🇪", "FIN": "Finland 🇫🇮",
+    "HUN": "Hungary 🇭🇺", "UKR": "Ukraine 🇺🇦", "TUR": "Turkey 🇹🇷",
+    "ARM": "Armenia 🇦🇲", "GEO": "Georgia 🇬🇪", "KOS": "Kosovo 🇽🇰",
+    "ISR": "Israel 🇮🇱", "ALB": "Albania 🇦🇱",
+    "BIH": "Bosnia & Herzegovina 🇧🇦", "UZB": "Uzbekistan 🇺🇿",
+    "QAT": "Qatar 🇶🇦", "CPV": "Cape Verde 🇨🇻",
+    "RSA": "South Africa 🇿🇦", "TUN": "Tunisia 🇹🇳",
+    "HAI": "Haiti 🇭🇹", "CUW": "Curaçao 🇨🇼",
+    "PAR": "Paraguay 🇵🇾", "SAU": "Saudi Arabia 🇸🇦",
+    "JOR": "Jordan 🇯🇴", "IRQ": "Iraq 🇮🇶",
+    "NZL": "New Zealand 🇳🇿", "CHN": "China 🇨🇳",
+    "BRA": "Brazil 🇧🇷", "ARG": "Argentina 🇦🇷", "COL": "Colombia 🇨🇴",
+    "URU": "Uruguay 🇺🇾", "ECU": "Ecuador 🇪🇨", "PAR": "Paraguay 🇵🇾",
+    "CHI": "Chile 🇨🇱", "BOL": "Bolivia 🇧🇴", "VEN": "Venezuela 🇻🇪",
+    "MEX": "Mexico 🇲🇽", "USA": "United States 🇺🇸", "CAN": "Canada 🇨🇦",
+    "CRC": "Costa Rica 🇨🇷", "HON": "Honduras 🇭🇳", "PAN": "Panama 🇵🇦",
+    "JAM": "Jamaica 🇯🇲", "TRI": "Trinidad & Tobago 🇹🇹",
+    "MAR": "Morocco 🇲🇦", "NGA": "Nigeria 🇳🇬", "SEN": "Senegal 🇸🇳",
+    "GHA": "Ghana 🇬🇭", "CIV": "Ivory Coast 🇨🇮", "CMR": "Cameroon 🇨🇲",
+    "EGY": "Egypt 🇪🇬", "ALG": "Algeria 🇩🇿", "MLI": "Mali 🇲🇱",
+    "GUI": "Guinea 🇬🇳", "GAB": "Gabon 🇬🇦", "COD": "DR Congo 🇨🇩",
+    "BFA": "Burkina Faso 🇧🇫", "TUN": "Tunisia 🇹🇳", "RSA": "South Africa 🇿🇦",
+    "JPN": "Japan 🇯🇵", "KOR": "South Korea 🇰🇷", "IRN": "Iran 🇮🇷",
+    "SAU": "Saudi Arabia 🇸🇦", "AUS": "Australia 🇦🇺", "NZL": "New Zealand 🇳🇿",
+    "CHN": "China 🇨🇳", "IRQ": "Iraq 🇮🇶", "JOR": "Jordan 🇯🇴",
+}
+# Reverse map: full label or name → ISO code
+NATION_CODE_FROM_LABEL = {v: k for k, v in NATION_LABELS.items()}
+NATION_CODE_FROM_LABEL.update({k: k for k in NATION_LABELS})  # also accept raw codes
+
+
+def apply_country_filter(results: pd.DataFrame, selected_nations: list[str]) -> pd.DataFrame:
+    """Filter recommendation results to selected nations only."""
+    if not selected_nations:
+        return results
+    # Normalize selection to ISO codes
+    codes = set()
+    for sel in selected_nations:
+        code = NATION_CODE_FROM_LABEL.get(sel, sel)
+        codes.add(code.upper())
+    
+    nation_col = next((c for c in ["nation", "nationality_tm"] if c in results.columns), None)
+    if not nation_col:
+        return results
+    
+    return results[results[nation_col].str.upper().isin(codes)]
 
 
 def get_flag_html(nation) -> str:
@@ -426,33 +484,44 @@ def get_nation_str(row: pd.Series) -> str:
     return ""
 
 
+def get_flag_and_nation_html(row: pd.Series) -> str:
+    """Generate HTML snippet for country flag and clean full country name."""
+    import html as _html
+    import re
+    nation_code = get_nation_str(row)
+    flag_html = get_flag_html(nation_code)
+    nation_full = NATION_LABELS.get(nation_code.upper(), nation_code)
+    # Strip flag emoji from label
+    nation_clean = re.sub(r'[\u2600-\u27BF]|[\u2000-\u3300]|[\uD83C-\uD83E][\uDC00-\uDFFF]', '', nation_full).strip()
+    nation_display = _html.escape(nation_clean) if nation_clean else ""
+    return f"{flag_html}<span>{nation_display}</span>"
+
+
 def get_player_image_url(row: pd.Series, player_name: str) -> str:
     """
     Resolve the best image URL for a player.
     Priority:
-    1. Local file served via Streamlit static serving (app/static/players/)
-    2. Remote Wikipedia URL stored in image_url column
+    1. TheSportsDB CDN URL (browser-accessible, no hotlink blocking)
+    2. Local file served via Streamlit static serving (app/static/players/)
     3. Dicebear avatar fallback
     """
-    # 1. Check local downloaded image
+    import urllib.parse
+
+    # 1. TheSportsDB URL - freely browser-accessible CDN
+    sdb_url = row.get("sportsdb_image_url")
+    if sdb_url and isinstance(sdb_url, str) and sdb_url.strip() and sdb_url.startswith("http"):
+        return sdb_url
+
+    # 2. Check local downloaded image (Wikipedia photos served via Streamlit static)
     local_path = row.get("local_image_path")
     if local_path and isinstance(local_path, str) and local_path.strip():
-        import os
-        # local_image_path is relative to project root, e.g. "app/static/players/erling_haaland.jpg"
-        # Streamlit static server serves files from app/static/ at /app/static/
         if local_path.startswith("app/static/"):
-            # Streamlit serves app/static/ at /app/static/ URL path
             return "/" + local_path
         full_path = PROJECT_ROOT / local_path
         if full_path.exists():
             return "/" + local_path
 
-    # 2. Remote Wikipedia URL (will be 403 in browser, but serves as fallback)
-    # We convert it to Dicebear since we know it won't work in browser
-    # (Only use if local file is not available)
-    
-    # 3. Dicebear avatar fallback
-    import urllib.parse
+    # 3. Dicebear avatar fallback (always works)
     encoded_name = urllib.parse.quote(player_name)
     return f"https://api.dicebear.com/7.x/lorelei/svg?seed={encoded_name}&backgroundColor=b6e3f4,c0aade,d1d4f9"
 
@@ -569,8 +638,7 @@ def render_player_card(row: pd.Series, rank: int = 0, show_gem_badge: bool = Fal
 
     # Image: use local static file if available
     img_url = get_player_image_url(row, player_name)
-    flag_html = get_flag_html(nation)
-    nation_display = _html.escape(nation) if nation else ""
+    flag_and_nation = get_flag_and_nation_html(row)
 
     st.markdown(
         f"<div style='background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);"
@@ -578,7 +646,7 @@ def render_player_card(row: pd.Series, rank: int = 0, show_gem_badge: bool = Fal
         f"box-shadow:0 4px 16px rgba(0,0,0,0.2);'>"
         f"<div style='display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;'>"
         f"<div style='display:flex;align-items:center;gap:16px;'>"
-        f"<img src='{img_url}' width='72' height='72' "
+        f"<img src='{img_url}' width='90' height='90' "
         f"style='border-radius:12px;object-fit:cover;flex-shrink:0;"
         f"background:rgba(255,255,255,0.05);"
         f"border:2px solid rgba(108,99,255,0.35);"
@@ -588,7 +656,7 @@ def render_player_card(row: pd.Series, rank: int = 0, show_gem_badge: bool = Fal
         f"<div style='font-size:16px;font-weight:700;color:#E8EBF0;'>{rank_str}{player_name}</div>"
         f"<div style='font-size:13px;color:rgba(232,235,240,0.55);margin-top:5px;"
         f"display:flex;align-items:center;flex-wrap:wrap;gap:5px;'>"
-        f"{flag_html}<span>{nation_display}</span>"
+        f"{flag_and_nation}"
         f"<span style='color:rgba(255,255,255,0.25);'>&bull;</span><span>{position}</span>"
         f"<span style='color:rgba(255,255,255,0.25);'>&bull;</span><span>{squad}</span>"
         f"<span style='color:rgba(255,255,255,0.25);'>&bull;</span>"
@@ -698,6 +766,20 @@ def page_player_finder(df: pd.DataFrame, rec, embedding_type: str) -> None:
         )
         pos_filter = None if pos_filter == "All" else pos_filter
 
+    # Country filter
+    available_nations = sorted([
+        NATION_LABELS.get(n, n)
+        for n in df["nation"].dropna().unique()
+        if isinstance(n, str)
+    ])
+    country_filter = st.multiselect(
+        "🌍 Filter by Country (leave empty = all countries)",
+        options=available_nations,
+        default=[],
+        placeholder="Type a country name...",
+        key="finder_country_filter",
+    )
+
     if not selected_player:
         st.info("Select a player to get started.")
         return
@@ -710,8 +792,7 @@ def page_player_finder(df: pd.DataFrame, rec, embedding_type: str) -> None:
             mv = format_market_value(r.get("market_value_eur"))
             nation = str(r.get("nation", r.get("nationality_tm", "N/A")))
             avatar_url = get_player_image_url(r, selected_player)
-            flag_html = get_flag_html(get_nation_str(r))
-            nation = get_nation_str(r)
+            flag_and_nation = get_flag_and_nation_html(r)
 
             st.markdown(f"""
             <div class='player-card' style='background:linear-gradient(135deg, rgba(108,99,255,0.12) 0%, rgba(0,210,168,0.08) 100%); border:1px solid rgba(108,99,255,0.45); border-radius:20px; padding:1.5rem; margin-bottom:1rem;'>
@@ -726,7 +807,7 @@ def page_player_finder(df: pd.DataFrame, rec, embedding_type: str) -> None:
                                 🌍 {r.get('league','N/A')} &nbsp;&bull;&nbsp;
                                 🎂 Age {r.get('age','N/A')} &nbsp;&bull;&nbsp;
                                 💶 {mv} &nbsp;&bull;&nbsp;
-                                {flag_html} {nation}
+                                {flag_and_nation}
                             </div>
                         </div>
                     </div>
@@ -766,6 +847,9 @@ def page_player_finder(df: pd.DataFrame, rec, embedding_type: str) -> None:
             results = _demo_recommendations(df, selected_player, k)
 
     if not results.empty:
+        results = apply_country_filter(results, country_filter)
+        if results.empty:
+            st.info("No players found for the selected country filter. Try removing the filter or selecting a different country.")
         for _, row in results.iterrows():
             render_player_card(row, rank=int(row.get("rank", 0)))
 
@@ -839,8 +923,7 @@ def page_budget_scout(df: pd.DataFrame, rec) -> None:
                 mv = format_market_value(r.get("market_value_eur"))
                 nation = str(r.get("nation", r.get("nationality_tm", "N/A")))
                 avatar_url = get_player_image_url(r, selected_player)
-                flag_html = get_flag_html(get_nation_str(r))
-                nation = get_nation_str(r)
+                flag_and_nation = get_flag_and_nation_html(r)
                 
                 st.markdown(f"""
                 <div style='background:rgba(108,99,255,0.06); border:1px solid rgba(108,99,255,0.25); border-radius:16px; padding:16px 20px; margin-bottom:1.5rem;'>
@@ -850,7 +933,7 @@ def page_budget_scout(df: pd.DataFrame, rec) -> None:
                             <div>
                                 <div style='font-size:20px; font-weight:700; color:#E8EBF0;'>Replacing style: {selected_player}</div>
                                 <div style='font-size:13px; color:rgba(232,235,240,0.5); margin-top:4px; display:flex; align-items:center; gap:6px;'>
-                                    📍 {r.get('pos','N/A')} &nbsp;&bull;&nbsp; 🏟 {r.get('squad','N/A')} &nbsp;&bull;&nbsp; 🌍 {r.get('league','N/A')} &nbsp;&bull;&nbsp; 💶 {mv} &nbsp;&bull;&nbsp; {flag_html} {nation}
+                                    📍 {r.get('pos','N/A')} &nbsp;&bull;&nbsp; 🏟 {r.get('squad','N/A')} &nbsp;&bull;&nbsp; 🌍 {r.get('league','N/A')} &nbsp;&bull;&nbsp; 💶 {mv} &nbsp;&bull;&nbsp; {flag_and_nation}
                                 </div>
                             </div>
                         </div>
@@ -876,6 +959,13 @@ def page_budget_scout(df: pd.DataFrame, rec) -> None:
                 return
 
         if not results.empty:
+            # Country filter
+            avail_n = sorted([NATION_LABELS.get(n,n) for n in df["nation"].dropna().unique() if isinstance(n,str)])
+            cf = st.multiselect("🌍 Filter results by Country", options=avail_n, default=[],
+                                placeholder="All countries...", key="budget_cf")
+            results = apply_country_filter(results, cf)
+            if results.empty and cf:
+                st.info("No budget replacements found for the selected countries.")
             for _, row in results.iterrows():
                 render_player_card(row, rank=int(row.get("rank", 0)))
 
@@ -990,8 +1080,7 @@ def page_hidden_gems(df: pd.DataFrame, rec) -> None:
                     mv = format_market_value(r.get("market_value_eur"))
                     nation = str(r.get("nation", r.get("nationality_tm", "N/A")))
                     avatar_url = get_player_image_url(r, reference)
-                    flag_html = get_flag_html(get_nation_str(r))
-                    nation = get_nation_str(r)
+                    flag_and_nation = get_flag_and_nation_html(r)
                     
                     st.markdown(f"""
                     <div style='background:rgba(108,99,255,0.06); border:1px solid rgba(108,99,255,0.25); border-radius:16px; padding:16px 20px; margin-bottom:1.5rem;'>
@@ -1001,7 +1090,7 @@ def page_hidden_gems(df: pd.DataFrame, rec) -> None:
                                 <div>
                                     <div style='font-size:20px; font-weight:700; color:#E8EBF0;'>Comparing style against: {reference}</div>
                                     <div style='font-size:13px; color:rgba(232,235,240,0.5); margin-top:4px; display:flex; align-items:center; gap:6px;'>
-                                        📍 {r.get('pos','N/A')} &nbsp;&bull;&nbsp; 🏟 {r.get('squad','N/A')} &nbsp;&bull;&nbsp; 🌍 {r.get('league','N/A')} &nbsp;&bull;&nbsp; 💶 {mv} &nbsp;&bull;&nbsp; {flag_html} {nation}
+                                        📍 {r.get('pos','N/A')} &nbsp;&bull;&nbsp; 🏟 {r.get('squad','N/A')} &nbsp;&bull;&nbsp; 🌍 {r.get('league','N/A')} &nbsp;&bull;&nbsp; 💶 {mv} &nbsp;&bull;&nbsp; {flag_and_nation}
                                     </div>
                                 </div>
                             </div>
@@ -1028,6 +1117,13 @@ def page_hidden_gems(df: pd.DataFrame, rec) -> None:
                     </div>
                 </div>""", unsafe_allow_html=True)
 
+            # Country filter
+            avail_ng = sorted([NATION_LABELS.get(n,n) for n in df["nation"].dropna().unique() if isinstance(n,str)])
+            gcf = st.multiselect("🌍 Filter gems by Country", options=avail_ng, default=[],
+                                  placeholder="All countries...", key="gems_cf")
+            results = apply_country_filter(results, gcf)
+            if results.empty and gcf:
+                st.info("No hidden gems found for the selected countries.")
             for _, row in results.iterrows():
                 render_player_card(row, rank=int(row.get("rank", 0)), show_gem_badge=True)
 
@@ -1330,8 +1426,7 @@ def page_ai_scout(df: pd.DataFrame, rec, embedding_type: str) -> None:
             mv = format_market_value(r.get("market_value_eur"))
             nation = str(r.get("nation", r.get("nationality_tm", "N/A")))
             avatar_url = get_player_image_url(r, ref_player)
-            flag_html = get_flag_html(get_nation_str(r))
-            nation = get_nation_str(r)
+            flag_and_nation = get_flag_and_nation_html(r)
             
             wc_badge = ""
             try:
@@ -1348,7 +1443,7 @@ def page_ai_scout(df: pd.DataFrame, rec, embedding_type: str) -> None:
                         <div>
                             <div style='font-size:20px; font-weight:700; color:#E8EBF0;'>Comparing against: {ref_player} {wc_badge}</div>
                             <div style='font-size:13px; color:rgba(232,235,240,0.5); margin-top:4px; display:flex; align-items:center; gap:6px;'>
-                                📍 {r.get('pos','N/A')} &nbsp;&bull;&nbsp; 🏟 {r.get('squad','N/A')} &nbsp;&bull;&nbsp; 🌍 {r.get('league','N/A')} &nbsp;&bull;&nbsp; 💶 {mv} &nbsp;&bull;&nbsp; {flag_html} {nation}
+                                📍 {r.get('pos','N/A')} &nbsp;&bull;&nbsp; 🏟 {r.get('squad','N/A')} &nbsp;&bull;&nbsp; 🌍 {r.get('league','N/A')} &nbsp;&bull;&nbsp; 💶 {mv} &nbsp;&bull;&nbsp; {flag_and_nation}
                             </div>
                         </div>
                     </div>
@@ -1465,6 +1560,12 @@ def page_ai_scout(df: pd.DataFrame, rec, embedding_type: str) -> None:
             results = pd.DataFrame()
 
     if not results.empty:
+        avail_na = sorted([NATION_LABELS.get(n,n) for n in df["nation"].dropna().unique() if isinstance(n,str)])
+        aicf = st.multiselect("🌍 Filter results by Country", options=avail_na, default=[],
+                               placeholder="All countries...", key="ai_scout_cf")
+        results = apply_country_filter(results, aicf)
+        if results.empty and aicf:
+            st.info("No players found for the selected countries. Try a different filter.")
         display_results = results.head(5)
         for _, row in display_results.iterrows():
             render_player_card(row, rank=int(row.get("rank", 0)))
