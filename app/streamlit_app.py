@@ -363,24 +363,98 @@ def _generate_demo_data() -> pd.DataFrame:
 
 # ─── Helper Functions ────────────────────────────────────────────────────────────
 
-def get_flag_html(nation: str) -> str:
-    """Generate HTML image tag for country flag using FlagCDN."""
-    if not isinstance(nation, str) or not nation or nation == "N/A":
+# Full ISO 3166 alpha-3 / FBref code → FlagCDN alpha-2 mapping
+FLAG_MAP = {
+    # European nations
+    "ENG": "gb-eng", "SCO": "gb-sct", "WAL": "gb-wls", "NIR": "gb-nir",
+    "ESP": "es", "GER": "de", "FRA": "fr", "ITA": "it", "IT": "it",
+    "POR": "pt", "NED": "nl", "BEL": "be", "SUI": "ch", "CHE": "ch",
+    "AUT": "at", "POL": "pl", "CZE": "cz", "SVK": "sk", "SVN": "si",
+    "CRO": "hr", "HRV": "hr", "SRB": "rs", "DEN": "dk", "DNK": "dk",
+    "NOR": "no", "SWE": "se", "FIN": "fi", "HUN": "hu", "ROU": "ro",
+    "RUS": "ru", "UKR": "ua", "GRE": "gr", "GRC": "gr", "TUR": "tr",
+    "ARM": "am", "GEO": "ge", "KOS": "xk", "ISR": "il", "AZE": "az",
+    "ALB": "al", "BIH": "ba", "MKD": "mk", "MNE": "me",
+    # Americas
+    "BRA": "br", "ARG": "ar", "COL": "co", "URU": "uy", "CHI": "cl",
+    "CHL": "cl", "PER": "pe", "ECU": "ec", "PAR": "py", "BOL": "bo",
+    "VEN": "ve", "MEX": "mx", "USA": "us", "CAN": "ca", "CRC": "cr",
+    "HON": "hn", "PAN": "pa", "JAM": "jm", "TRI": "tt", "HAI": "ht",
+    # African nations
+    "MAR": "ma", "NGA": "ng", "SEN": "sn", "GHA": "gh", "CIV": "ci",
+    "CMR": "cm", "EGY": "eg", "ALG": "dz", "TUN": "tn", "MLI": "ml",
+    "GUI": "gn", "GAB": "ga", "COD": "cd", "BFA": "bf", "CPV": "cv",
+    "ZIM": "zw", "ANG": "ao", "MOZ": "mz", "TAN": "tz", "UGA": "ug",
+    "KEN": "ke", "ETH": "et", "RSA": "za", "ZAF": "za",
+    # Asian nations
+    "JPN": "jp", "KOR": "kr", "CHN": "cn", "IRN": "ir", "SAU": "sa",
+    "UAE": "ae", "QAT": "qa", "AUS": "au", "NZL": "nz", "IND": "in",
+    "IRQ": "iq", "JOR": "jo", "LBN": "lb", "SYR": "sy",
+    # Others
+    "IRL": "ie", "KAZ": "kz",
+}
+
+
+def get_flag_html(nation) -> str:
+    """Generate HTML image tag for country flag using FlagCDN. Handles NaN/None gracefully."""
+    if nation is None:
         return ""
-    FLAG_MAP = {
-        "ENG": "gb-eng", "ESP": "es", "GER": "de", "FRA": "fr", "BRA": "br", "IT": "it", "ITA": "it",
-        "ARG": "ar", "NED": "nl", "POR": "pt", "BEL": "be", "SUI": "ch", "CRO": "hr",
-        "USA": "us", "MAR": "ma", "JPN": "jp", "SEN": "sn", "SRB": "rs", "NOR": "no",
-        "COL": "co", "URU": "uy", "DEN": "dk", "MEX": "mx", "CAN": "ca", "NGA": "ng",
-        "SCO": "gb-sct", "KOR": "kr", "CIV": "ci", "AUT": "at", "POL": "pl", "TUR": "tr",
-        "GEO": "ge", "AUS": "au", "GHA": "gh", "UKR": "ua", "ECU": "ec", "IRN": "ir",
-        "EGY": "eg", "HUN": "hu", "SWE": "se", "CMR": "cm", "SVN": "si", "BFA": "bf",
-        "ALG": "dz", "SVK": "sk", "GAB": "ga", "MLI": "ml", "WAL": "gb-wls", "ISR": "il",
-        "JAM": "jm", "IRL": "ie", "FIN": "fi", "CZE": "cz", "ARM": "am", "KOS": "xk",
-        "GUI": "gn", "COD": "cd"
-    }
+    # Handle pandas NA / numpy float NaN
+    try:
+        if not isinstance(nation, str):
+            nation = str(nation)
+    except Exception:
+        return ""
+    nation = nation.strip()
+    if not nation or nation in ("N/A", "nan", "None", "-"):
+        return ""
     flag_code = FLAG_MAP.get(nation.upper(), "un")
-    return f"<img src='https://flagcdn.com/w20/{flag_code}.png' style='vertical-align: middle; margin-right: 4px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.15);' width='16' title='{nation}'/>"
+    return (
+        f"<img src='https://flagcdn.com/w20/{flag_code}.png' "
+        f"style='vertical-align:middle;margin-right:4px;border-radius:2px;"
+        f"border:1px solid rgba(255,255,255,0.15);height:14px;' "
+        f"title='{nation}'/>"
+    )
+
+
+def get_nation_str(row: pd.Series) -> str:
+    """Extract the nation string from a row, trying multiple column names."""
+    for col in ("nation", "nationality_tm", "nationality"):
+        val = row.get(col)
+        if val and isinstance(val, str) and val.strip() and val.strip() not in ("N/A", "nan"):
+            return val.strip()
+    return ""
+
+
+def get_player_image_url(row: pd.Series, player_name: str) -> str:
+    """
+    Resolve the best image URL for a player.
+    Priority:
+    1. Local file served via Streamlit static serving (app/static/players/)
+    2. Remote Wikipedia URL stored in image_url column
+    3. Dicebear avatar fallback
+    """
+    # 1. Check local downloaded image
+    local_path = row.get("local_image_path")
+    if local_path and isinstance(local_path, str) and local_path.strip():
+        import os
+        # local_image_path is relative to project root, e.g. "app/static/players/erling_haaland.jpg"
+        # Streamlit static server serves files from app/static/ at /app/static/
+        if local_path.startswith("app/static/"):
+            # Streamlit serves app/static/ at /app/static/ URL path
+            return "/" + local_path
+        full_path = PROJECT_ROOT / local_path
+        if full_path.exists():
+            return "/" + local_path
+
+    # 2. Remote Wikipedia URL (will be 403 in browser, but serves as fallback)
+    # We convert it to Dicebear since we know it won't work in browser
+    # (Only use if local file is not available)
+    
+    # 3. Dicebear avatar fallback
+    import urllib.parse
+    encoded_name = urllib.parse.quote(player_name)
+    return f"https://api.dicebear.com/7.x/lorelei/svg?seed={encoded_name}&backgroundColor=b6e3f4,c0aade,d1d4f9"
 
 
 def get_player_avatar_url(name: str) -> str:
@@ -411,8 +485,6 @@ def similarity_bar_html(score: float) -> str:
         <div class='sim-bar' style='width: {pct}px; background: {color};'></div>
         <span class='sim-value'>{score:.3f}</span>
     </div>"""
-
-
 def get_player_avatar_svg(name: str) -> str:
     """Generate a premium base64-encoded SVG circular avatar badge with initials and gradient background."""
     import hashlib
@@ -440,7 +512,8 @@ def get_player_avatar_svg(name: str) -> str:
         initials = "FS"
         
     svg = f"""
-    <svg width='44' height='44' viewBox='0 0 44 44' fill='none' xmlns='http://www.w3.org/2000/svg' style='border-radius: 50%; border: 1.5px solid rgba(255, 255, 255, 0.25); box-shadow: 0 2px 8px rgba(0,0,0,0.4);'>
+    <svg width='44' height='44' viewBox='0 0 44 44' fill='none' xmlns='http://www.w3.org/2000/svg'
+         style='border-radius:50%;border:1.5px solid rgba(255,255,255,0.25);box-shadow:0 2px 8px rgba(0,0,0,0.4);'>
         <defs>
             <linearGradient id='grad_{h}' x1='0%' y1='0%' x2='100%' y2='100%'>
                 <stop offset='0%' stop-color='{c1}' />
@@ -448,7 +521,9 @@ def get_player_avatar_svg(name: str) -> str:
             </linearGradient>
         </defs>
         <circle cx='22' cy='22' r='22' fill='url(#grad_{h})' />
-        <text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle' fill='#FFFFFF' font-size='14' font-family='Outfit, Inter, sans-serif' font-weight='700' letter-spacing='0.5'>{initials}</text>
+        <text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle'
+              fill='#FFFFFF' font-size='14' font-family='Outfit, Inter, sans-serif'
+              font-weight='700' letter-spacing='0.5'>{initials}</text>
     </svg>
     """
     b64 = base64.b64encode(svg.encode('utf-8')).decode('utf-8')
@@ -466,7 +541,7 @@ def render_player_card(row: pd.Series, rank: int = 0, show_gem_badge: bool = Fal
     position    = _html.escape(str(row.get("position", row.get("pos", "N/A"))))
     squad       = _html.escape(str(row.get("squad", "N/A")))
     league      = _html.escape(str(row.get("league", "N/A")))
-    nation      = _html.escape(str(row.get("nation", row.get("nationality_tm", "N/A"))))
+    nation      = get_nation_str(row)
 
     def _stat(key: str) -> float:
         try:
@@ -477,26 +552,25 @@ def render_player_card(row: pd.Series, rank: int = 0, show_gem_badge: bool = Fal
     sim_color  = "#00D2A8" if sim >= 0.8 else ("#6C63FF" if sim >= 0.6 else "#FFC107")
     rank_str   = f"#{rank}&nbsp;" if rank > 0 else ""
 
-    # Pure inline styles — avoids Streamlit sanitizer blocking class= attributes
     badge      = "display:inline-block;background:rgba(108,99,255,0.15);border:1px solid rgba(108,99,255,0.3);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:600;color:#A89CFF;margin:2px;"
     badge_grn  = "display:inline-block;background:rgba(0,210,168,0.12);border:1px solid rgba(0,210,168,0.3);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:600;color:#00D2A8;margin:2px;"
     badge_gold = "display:inline-block;background:rgba(255,193,7,0.12);border:1px solid rgba(255,193,7,0.3);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:600;color:#FFC107;margin:2px;"
     sim_badge  = f"display:inline-block;background:rgba(255,255,255,0.05);border:1px solid {sim_color}66;border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;color:{sim_color};margin:2px;"
     gem_html   = f"<span style='{badge_gold}'>&#128142; Hidden Gem</span>" if show_gem_badge else ""
-    
+
     # World Cup Badge
     wc_html = ""
     try:
         is_wc = int(float(row.get("is_world_cup", 0)))
         if is_wc == 1:
-            wc_html = f"<span style='{badge_grn}'>🏆 World Cup</span>"
+            wc_html = f"<span style='{badge_grn}'>&#127942; WC 2026</span>"
     except Exception:
         pass
 
-    avatar_url = row.get("image_url")
-    if not isinstance(avatar_url, str) or pd.isna(avatar_url) or not avatar_url:
-        avatar_url = get_player_avatar_url(player_name)
+    # Image: use local static file if available
+    img_url = get_player_image_url(row, player_name)
     flag_html = get_flag_html(nation)
+    nation_display = _html.escape(nation) if nation else ""
 
     st.markdown(
         f"<div style='background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);"
@@ -504,17 +578,28 @@ def render_player_card(row: pd.Series, rank: int = 0, show_gem_badge: bool = Fal
         f"box-shadow:0 4px 16px rgba(0,0,0,0.2);'>"
         f"<div style='display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;'>"
         f"<div style='display:flex;align-items:center;gap:16px;'>"
-        f"<img src='{avatar_url}' width='64' height='64' style='border-radius:12px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 2px solid rgba(108,99,255,0.35); box-shadow: 0 4px 12px rgba(0,0,0,0.3);'/>"
+        f"<img src='{img_url}' width='72' height='72' "
+        f"style='border-radius:12px;object-fit:cover;flex-shrink:0;"
+        f"background:rgba(255,255,255,0.05);"
+        f"border:2px solid rgba(108,99,255,0.35);"
+        f"box-shadow:0 4px 12px rgba(0,0,0,0.35);' "
+        f"onerror=\"this.src='https://api.dicebear.com/7.x/lorelei/svg?seed={player_name}'\"/>"
         f"<div>"
         f"<div style='font-size:16px;font-weight:700;color:#E8EBF0;'>{rank_str}{player_name}</div>"
-        f"<div style='font-size:13px;color:rgba(232,235,240,0.5);margin-top:4px;display:flex;align-items:center;gap:6px;'>{position} &bull; {squad} &bull; {league} &bull; {flag_html} {nation}</div>"
+        f"<div style='font-size:13px;color:rgba(232,235,240,0.55);margin-top:5px;"
+        f"display:flex;align-items:center;flex-wrap:wrap;gap:5px;'>"
+        f"{flag_html}<span>{nation_display}</span>"
+        f"<span style='color:rgba(255,255,255,0.25);'>&bull;</span><span>{position}</span>"
+        f"<span style='color:rgba(255,255,255,0.25);'>&bull;</span><span>{squad}</span>"
+        f"<span style='color:rgba(255,255,255,0.25);'>&bull;</span>"
+        f"<span style='color:rgba(232,235,240,0.35);font-size:12px;'>{league}</span>"
+        f"</div>"
         f"</div>"
         f"</div>"
         f"<div style='display:flex;flex-wrap:wrap;gap:4px;align-items:center;'>"
         f"<span style='{sim_badge}'>{sim_pct} match</span>"
         f"<span style='{badge_grn}'>{mv}</span>"
-        f"{wc_html}"
-        f"{gem_html}"
+        f"{wc_html}{gem_html}"
         f"</div></div>"
         f"<div style='margin-top:10px;display:flex;flex-wrap:wrap;gap:4px;'>"
         f"<span style='{badge}'>&#9917; {_stat('gls_per90'):.2f} G/90</span>"
@@ -624,10 +709,9 @@ def page_player_finder(df: pd.DataFrame, rec, embedding_type: str) -> None:
             r = player_row.iloc[0]
             mv = format_market_value(r.get("market_value_eur"))
             nation = str(r.get("nation", r.get("nationality_tm", "N/A")))
-            avatar_url = r.get("image_url")
-            if not isinstance(avatar_url, str) or pd.isna(avatar_url) or not avatar_url:
-                avatar_url = get_player_avatar_url(selected_player)
-            flag_html = get_flag_html(nation)
+            avatar_url = get_player_image_url(r, selected_player)
+            flag_html = get_flag_html(get_nation_str(r))
+            nation = get_nation_str(r)
 
             st.markdown(f"""
             <div class='player-card' style='background:linear-gradient(135deg, rgba(108,99,255,0.12) 0%, rgba(0,210,168,0.08) 100%); border:1px solid rgba(108,99,255,0.45); border-radius:20px; padding:1.5rem; margin-bottom:1rem;'>
@@ -754,10 +838,9 @@ def page_budget_scout(df: pd.DataFrame, rec) -> None:
                 r = player_row.iloc[0]
                 mv = format_market_value(r.get("market_value_eur"))
                 nation = str(r.get("nation", r.get("nationality_tm", "N/A")))
-                avatar_url = r.get("image_url")
-                if not isinstance(avatar_url, str) or pd.isna(avatar_url) or not avatar_url:
-                    avatar_url = get_player_avatar_url(selected_player)
-                flag_html = get_flag_html(nation)
+                avatar_url = get_player_image_url(r, selected_player)
+                flag_html = get_flag_html(get_nation_str(r))
+                nation = get_nation_str(r)
                 
                 st.markdown(f"""
                 <div style='background:rgba(108,99,255,0.06); border:1px solid rgba(108,99,255,0.25); border-radius:16px; padding:16px 20px; margin-bottom:1.5rem;'>
@@ -906,10 +989,9 @@ def page_hidden_gems(df: pd.DataFrame, rec) -> None:
                     r = player_row.iloc[0]
                     mv = format_market_value(r.get("market_value_eur"))
                     nation = str(r.get("nation", r.get("nationality_tm", "N/A")))
-                    avatar_url = r.get("image_url")
-                    if not isinstance(avatar_url, str) or pd.isna(avatar_url) or not avatar_url:
-                        avatar_url = get_player_avatar_url(reference)
-                    flag_html = get_flag_html(nation)
+                    avatar_url = get_player_image_url(r, reference)
+                    flag_html = get_flag_html(get_nation_str(r))
+                    nation = get_nation_str(r)
                     
                     st.markdown(f"""
                     <div style='background:rgba(108,99,255,0.06); border:1px solid rgba(108,99,255,0.25); border-radius:16px; padding:16px 20px; margin-bottom:1.5rem;'>
@@ -1247,10 +1329,9 @@ def page_ai_scout(df: pd.DataFrame, rec, embedding_type: str) -> None:
             r = player_row.iloc[0]
             mv = format_market_value(r.get("market_value_eur"))
             nation = str(r.get("nation", r.get("nationality_tm", "N/A")))
-            avatar_url = r.get("image_url")
-            if not isinstance(avatar_url, str) or pd.isna(avatar_url) or not avatar_url:
-                avatar_url = get_player_avatar_url(ref_player)
-            flag_html = get_flag_html(nation)
+            avatar_url = get_player_image_url(r, ref_player)
+            flag_html = get_flag_html(get_nation_str(r))
+            nation = get_nation_str(r)
             
             wc_badge = ""
             try:
