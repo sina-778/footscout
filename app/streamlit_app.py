@@ -983,32 +983,50 @@ def page_ai_scout(df: pd.DataFrame, rec, embedding_type: str) -> None:
         ref_player = selected_ref_helper
         extracted_name_segment = selected_ref_helper
     else:
-        patterns = [
-            r"like\s+([a-zA-Z\s'\-ÆæØøÅåÉéÈèÜüÄäÖöííááóóúúññ]+)",
-            r"similar\s+to\s+([a-zA-Z\s'\-ÆæØøÅåÉéÈèÜüÄäÖöííááóóúúññ]+)",
-            r"type\s+of\s+([a-zA-Z\s'\-ÆæØøÅåÉéÈèÜüÄäÖöííááóóúúññ]+)",
-            r"replacement\s+for\s+([a-zA-Z\s'\-ÆæØøÅåÉéÈèÜüÄäÖöííááóóúúññ]+)",
-            r"alternative\s+to\s+([a-zA-Z\s'\-ÆæØøÅåÉéÈèÜüÄäÖöííááóóúúññ]+)"
-        ]
-        
-        for pattern in patterns:
-            matches = re.findall(pattern, q_lower)
-            for match in matches:
-                match_clean = match.strip()
-                if len(match_clean) < 3:
+        # Step A: Direct word match for single names / last names
+        # Sort by length descending to match full names first
+        for name in sorted(player_names, key=len, reverse=True):
+            name_lower = name.lower()
+            words_in_name = [w for w in name_lower.split() if len(w) > 2]
+            for word in words_in_name:
+                if word in ["young", "under", "squad", "club", "league", "winger", "forward", "striker", "midfielder", "defender", "keeper", "player", "similar", "like"]:
                     continue
-                # Fuzzy match the extracted segment against database
-                res = rf_process.extractOne(match_clean, player_names, scorer=rf_fuzz.token_sort_ratio)
-                if res:
-                    name, score, _ = res
-                    if score >= 75:  # threshold of 75%
-                        ref_player = name
-                        extracted_name_segment = match_clean
-                        break
+                pattern = r'\b' + re.escape(word) + r'\b'
+                if re.search(pattern, q_lower):
+                    ref_player = name
+                    extracted_name_segment = word
+                    break
             if ref_player:
                 break
 
-        # Fallback to scanning all n-grams in query for player name fuzzy match
+        # Step B: Fallback to regex patterns and fuzzy matching
+        if not ref_player:
+            patterns = [
+                r"like\s+([a-zA-Z\s'\-ÆæØøÅåÉéÈèÜüÄäÖöííááóóúúññ]+)",
+                r"similar\s+to\s+([a-zA-Z\s'\-ÆæØøÅåÉéÈèÜüÄäÖöííááóóúúññ]+)",
+                r"type\s+of\s+([a-zA-Z\s'\-ÆæØøÅåÉéÈèÜüÄäÖöííááóóúúññ]+)",
+                r"replacement\s+for\s+([a-zA-Z\s'\-ÆæØøÅåÉéÈèÜüÄäÖöííááóóúúññ]+)",
+                r"alternative\s+to\s+([a-zA-Z\s'\-ÆæØøÅåÉéÈèÜüÄäÖöííááóóúúññ]+)"
+            ]
+            
+            for pattern in patterns:
+                matches = re.findall(pattern, q_lower)
+                for match in matches:
+                    match_clean = match.strip()
+                    if len(match_clean) < 3:
+                        continue
+                    # Fuzzy match the extracted segment against database
+                    res = rf_process.extractOne(match_clean, player_names, scorer=rf_fuzz.token_sort_ratio)
+                    if res:
+                        name, score, _ = res
+                        if score >= 75:  # threshold of 75%
+                            ref_player = name
+                            extracted_name_segment = match_clean
+                            break
+                if ref_player:
+                    break
+
+        # Step C: Fallback to scanning all n-grams in query for player name fuzzy match
         if not ref_player:
             words = q_lower.split()
             best_name = None
@@ -1291,24 +1309,10 @@ def page_ai_scout(df: pd.DataFrame, rec, embedding_type: str) -> None:
                 
                 candidates = candidates.sort_values(by="similarity", ascending=False).head(10)
                 
-                formatted_rows = []
-                for rank, (idx, crow) in enumerate(candidates.iterrows(), start=1):
-                    formatted_rows.append({
-                        "rank": rank,
-                        "player": crow[name_col],
-                        "similarity": round(float(crow["similarity"]), 4),
-                        "position": crow["pos"],
-                        "squad": crow["squad"],
-                        "league": crow["league"],
-                        "market_value_eur": crow["market_value_eur"],
-                        "age": crow["age"],
-                        "is_world_cup": crow["is_world_cup"],
-                        "gls_per90": crow.get("gls_per90", 0.0),
-                        "ast_per90": crow.get("ast_per90", 0.0),
-                        "xg_per90": crow.get("xg_per90", 0.0),
-                        "tackles_tkl_per90": crow.get("tackles_tkl_per90", 0.0),
-                    })
-                results = pd.DataFrame(formatted_rows)
+                results = candidates.copy()
+                results.insert(0, "rank", range(1, len(results) + 1))
+                if "position" not in results.columns and "pos" in results.columns:
+                    results["position"] = results["pos"]
         except Exception as e:
             st.error(f"Search failed: {e}")
             results = pd.DataFrame()
