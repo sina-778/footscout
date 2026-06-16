@@ -1,0 +1,61 @@
+# ============================================================
+# FootScout — Football Player Recommendation System
+# Master's Project — Data Science Workflow, BHT Berlin
+# requirements.txt
+# ============================================================
+
+# ─── Web Scraping ──────────────────────────────────────────
+requests>=2.31.0
+beautifulsoup4>=4.12.3
+lxml>=5.1.0
+html5lib>=1.1
+urllib3>=2.2.0
+
+# ─── Data Processing & Analysis ────────────────────────────
+pandas>=2.2.0
+numpy>=1.26.0
+scipy>=1.12.0
+
+# ─── Fuzzy String Matching (for FBref <> Transfermarkt join) ─
+rapidfuzz>=3.6.1
+
+# ─── Machine Learning & Dimensionality Reduction ───────────
+scikit-learn>=1.4.0
+umap-learn>=0.5.6
+joblib>=1.3.2
+
+# ─── Deep Learning & Text Embeddings ───────────────────────
+sentence-transformers>=2.7.0
+torch>=2.2.0
+transformers>=4.39.0
+
+# ─── Hyperparameter Optimisation ───────────────────────────
+optuna>=3.6.0
+optuna-dashboard>=0.15.0
+
+# ─── Experiment Tracking ───────────────────────────────────
+wandb>=0.17.0
+
+# ─── Streamlit Frontend ────────────────────────────────────
+streamlit>=1.34.0
+streamlit-option-menu>=0.3.12
+
+# ─── Visualisation ─────────────────────────────────────────
+plotly>=5.20.0
+matplotlib>=3.8.0
+seaborn>=0.13.2
+kaleido>=0.2.1        # static image export for Plotly
+
+# ─── Notebook Support ──────────────────────────────────────
+jupyter>=1.0.0
+ipykernel>=6.29.0
+ipywidgets>=8.1.2
+nbformat>=5.10.0
+
+# ─── Utilities ─────────────────────────────────────────────
+tqdm>=4.66.0
+python-dotenv>=1.0.1
+pyyaml>=6.0.1
+rich>=13.7.0          # pretty console output
+loguru>=0.7.2         # structured logging
+tenacity>=8.2.3       # retry logic for scrapers
