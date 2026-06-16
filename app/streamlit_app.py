@@ -272,9 +272,17 @@ st.markdown("""
 
 # ─── Data & Model Loading ────────────────────────────────────────────────────────
 
+def get_csv_mtime() -> float:
+    """Get the modification time of the processed players dataset."""
+    path = PROJECT_ROOT / "data" / "processed" / "players_merged.csv"
+    if path.exists():
+        return path.stat().st_mtime
+    return 0.0
+
+
 @st.cache_data(show_spinner=False)
-def load_player_data() -> pd.DataFrame:
-    """Load the merged player dataset."""
+def load_player_data(mtime: float) -> pd.DataFrame:
+    """Load the merged player dataset. Depends on mtime to automatically invalidate cache."""
     path = PROJECT_ROOT / "data" / "processed" / "players_merged.csv"
     if path.exists():
         df = pd.read_csv(path, low_memory=False)
@@ -284,11 +292,11 @@ def load_player_data() -> pd.DataFrame:
 
 
 @st.cache_resource(show_spinner=False)
-def load_recommender_cached(method: str = "umap", alpha: float = 0.6):
-    """Load (or build) the recommender engine. Cached as a singleton."""
+def load_recommender_cached(method: str = "umap", alpha: float = 0.6, mtime: float = 0.0):
+    """Load (or build) the recommender engine. Cached as a singleton, invalidated by mtime."""
     try:
         from src.recommender import load_recommender
-        df = load_player_data()
+        df = load_player_data(mtime)
         return load_recommender(method=method, alpha=alpha, df=df), None
     except FileNotFoundError as e:
         return None, str(e)
@@ -492,14 +500,14 @@ def render_player_card(row: pd.Series, rank: int = 0, show_gem_badge: bool = Fal
 
     st.markdown(
         f"<div style='background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);"
-        f"border-radius:14px;padding:14px 18px;margin-bottom:10px;"
+        f"border-radius:16px;padding:16px 20px;margin-bottom:12px;"
         f"box-shadow:0 4px 16px rgba(0,0,0,0.2);'>"
-        f"<div style='display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px;align-items:flex-start;'>"
-        f"<div style='display:flex;align-items:center;gap:12px;'>"
-        f"<img src='{avatar_url}' width='44' height='44' style='border-radius:50%; flex-shrink: 0; background: rgba(255,255,255,0.05);'/>"
+        f"<div style='display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;'>"
+        f"<div style='display:flex;align-items:center;gap:16px;'>"
+        f"<img src='{avatar_url}' width='64' height='64' style='border-radius:12px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 2px solid rgba(108,99,255,0.35); box-shadow: 0 4px 12px rgba(0,0,0,0.3);'/>"
         f"<div>"
-        f"<div style='font-size:15px;font-weight:700;color:#E8EBF0;'>{rank_str}{player_name}</div>"
-        f"<div style='font-size:12px;color:rgba(232,235,240,0.5);margin-top:2px;display:flex;align-items:center;gap:4px;'>{position} &bull; {squad} &bull; {league} &bull; {flag_html} {nation}</div>"
+        f"<div style='font-size:16px;font-weight:700;color:#E8EBF0;'>{rank_str}{player_name}</div>"
+        f"<div style='font-size:13px;color:rgba(232,235,240,0.5);margin-top:4px;display:flex;align-items:center;gap:6px;'>{position} &bull; {squad} &bull; {league} &bull; {flag_html} {nation}</div>"
         f"</div>"
         f"</div>"
         f"<div style='display:flex;flex-wrap:wrap;gap:4px;align-items:center;'>"
@@ -624,8 +632,8 @@ def page_player_finder(df: pd.DataFrame, rec, embedding_type: str) -> None:
             st.markdown(f"""
             <div class='player-card' style='background:linear-gradient(135deg, rgba(108,99,255,0.12) 0%, rgba(0,210,168,0.08) 100%); border:1px solid rgba(108,99,255,0.45); border-radius:20px; padding:1.5rem; margin-bottom:1rem;'>
                 <div style='display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; align-items:center;'>
-                    <div style='display:flex; align-items:center; gap:14px;'>
-                        <img src='{avatar_url}' width='56' height='56' style='border-radius:50%; background:rgba(255,255,255,0.05); border:1.5px solid rgba(108,99,255,0.3); flex-shrink:0;'/>
+                    <div style='display:flex; align-items:center; gap:20px;'>
+                        <img src='{avatar_url}' width='80' height='80' style='border-radius:16px; object-fit: cover; background:rgba(255,255,255,0.05); border:2px solid rgba(108,99,255,0.45); box-shadow:0 4px 16px rgba(0,0,0,0.4); flex-shrink:0;'/>
                         <div>
                             <div class='player-name' style='font-size:2rem;'>{r.get('player', selected_player)}</div>
                             <div class='player-meta' style='display:flex; align-items:center; gap:6px; flex-wrap:wrap; color:rgba(232, 235, 240, 0.65); font-size:0.95rem; margin-top:0.3rem;'>
@@ -743,12 +751,31 @@ def page_budget_scout(df: pd.DataFrame, rec) -> None:
         if name_col:
             player_row = df[df[name_col].str.lower() == selected_player.lower()]
             if not player_row.empty:
-                query_val = player_row.iloc[0].get("market_value_eur")
-                query_str = format_market_value(query_val)
+                r = player_row.iloc[0]
+                mv = format_market_value(r.get("market_value_eur"))
+                nation = str(r.get("nation", r.get("nationality_tm", "N/A")))
+                avatar_url = r.get("image_url")
+                if not isinstance(avatar_url, str) or pd.isna(avatar_url) or not avatar_url:
+                    avatar_url = get_player_avatar_url(selected_player)
+                flag_html = get_flag_html(nation)
+                
                 st.markdown(f"""
-                <div class='glass-card'>
-                    🎯 Replacing <b>{selected_player}</b>
-                    (value: <b>{query_str}</b>) with players under <b>€{budget_m}M</b>
+                <div style='background:rgba(108,99,255,0.06); border:1px solid rgba(108,99,255,0.25); border-radius:16px; padding:16px 20px; margin-bottom:1.5rem;'>
+                    <div style='display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;'>
+                        <div style='display:flex; align-items:center; gap:20px;'>
+                            <img src='{avatar_url}' width='80' height='80' style='border-radius:16px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 2px solid rgba(108,99,255,0.45); box-shadow: 0 4px 16px rgba(0,0,0,0.4);'/>
+                            <div>
+                                <div style='font-size:20px; font-weight:700; color:#E8EBF0;'>Replacing style: {selected_player}</div>
+                                <div style='font-size:13px; color:rgba(232,235,240,0.5); margin-top:4px; display:flex; align-items:center; gap:6px;'>
+                                    📍 {r.get('pos','N/A')} &nbsp;&bull;&nbsp; 🏟 {r.get('squad','N/A')} &nbsp;&bull;&nbsp; 🌍 {r.get('league','N/A')} &nbsp;&bull;&nbsp; 💶 {mv} &nbsp;&bull;&nbsp; {flag_html} {nation}
+                                </div>
+                            </div>
+                        </div>
+                        <div style='text-align:right;'>
+                            <div style='font-size:12px; color:rgba(232,235,240,0.45);'>Target Budget Limit</div>
+                            <div style='font-size:24px; font-weight:800; color:#00D2A8;'>&le; €{budget_m}M</div>
+                        </div>
+                    </div>
                 </div>""", unsafe_allow_html=True)
 
         if rec is None:
@@ -873,12 +900,51 @@ def page_hidden_gems(df: pd.DataFrame, rec) -> None:
                 return
 
         if not results.empty:
-            st.markdown(
-                f"<div class='glass-card'>💎 Found <b>{len(results)}</b> hidden gems "
-                f"under <b>€{max_val_m}M</b> matching the <b>{position}</b> profile"
-                + (f" (reference: {reference})" if reference else "") + "</div>",
-                unsafe_allow_html=True,
-            )
+            if reference and name_col:
+                player_row = df[df[name_col].str.lower() == reference.lower()]
+                if not player_row.empty:
+                    r = player_row.iloc[0]
+                    mv = format_market_value(r.get("market_value_eur"))
+                    nation = str(r.get("nation", r.get("nationality_tm", "N/A")))
+                    avatar_url = r.get("image_url")
+                    if not isinstance(avatar_url, str) or pd.isna(avatar_url) or not avatar_url:
+                        avatar_url = get_player_avatar_url(reference)
+                    flag_html = get_flag_html(nation)
+                    
+                    st.markdown(f"""
+                    <div style='background:rgba(108,99,255,0.06); border:1px solid rgba(108,99,255,0.25); border-radius:16px; padding:16px 20px; margin-bottom:1.5rem;'>
+                        <div style='display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;'>
+                            <div style='display:flex; align-items:center; gap:20px;'>
+                                <img src='{avatar_url}' width='80' height='80' style='border-radius:16px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 2px solid rgba(108,99,255,0.45); box-shadow: 0 4px 16px rgba(0,0,0,0.4);'/>
+                                <div>
+                                    <div style='font-size:20px; font-weight:700; color:#E8EBF0;'>Comparing style against: {reference}</div>
+                                    <div style='font-size:13px; color:rgba(232,235,240,0.5); margin-top:4px; display:flex; align-items:center; gap:6px;'>
+                                        📍 {r.get('pos','N/A')} &nbsp;&bull;&nbsp; 🏟 {r.get('squad','N/A')} &nbsp;&bull;&nbsp; 🌍 {r.get('league','N/A')} &nbsp;&bull;&nbsp; 💶 {mv} &nbsp;&bull;&nbsp; {flag_html} {nation}
+                                    </div>
+                                </div>
+                            </div>
+                            <div style='text-align:right;'>
+                                <div style='font-size:12px; color:rgba(232,235,240,0.45);'>Target Position &amp; Value</div>
+                                <div style='font-size:20px; font-weight:800; color:#00D2A8;'>{position} &bull; &le; €{max_val_m}M</div>
+                            </div>
+                        </div>
+                    </div>""", unsafe_allow_html=True)
+            else:
+                st.markdown(f"""
+                <div style='background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.08); border-radius:16px; padding:16px 20px; margin-bottom:1.5rem;'>
+                    <div style='display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;'>
+                        <div>
+                            <div style='font-size:20px; font-weight:700; color:#E8EBF0;'>Searching for Gems (Position Centroid)</div>
+                            <div style='font-size:13px; color:rgba(232,235,240,0.5); margin-top:4px;'>
+                                Targeting average style profile of all <b>{position}</b> players in the database.
+                            </div>
+                        </div>
+                        <div style='text-align:right;'>
+                            <div style='font-size:12px; color:rgba(232,235,240,0.45);'>Max Value limit</div>
+                            <div style='font-size:24px; font-weight:800; color:#00D2A8;'>&le; €{max_val_m}M</div>
+                        </div>
+                    </div>
+                </div>""", unsafe_allow_html=True)
 
             for _, row in results.iterrows():
                 render_player_card(row, rank=int(row.get("rank", 0)), show_gem_badge=True)
@@ -1194,13 +1260,13 @@ def page_ai_scout(df: pd.DataFrame, rec, embedding_type: str) -> None:
                 pass
 
             st.markdown(f"""
-            <div style='background:rgba(108,99,255,0.06); border:1px solid rgba(108,99,255,0.25); border-radius:14px; padding:14px 18px; margin-bottom:1.5rem;'>
-                <div style='display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:12px;'>
-                    <div style='display:flex; align-items:center; gap:12px;'>
-                        <img src='{avatar_url}' width='44' height='44' style='border-radius:50%; flex-shrink: 0; background: rgba(255,255,255,0.05);'/>
+            <div style='background:rgba(108,99,255,0.06); border:1px solid rgba(108,99,255,0.25); border-radius:16px; padding:16px 20px; margin-bottom:1.5rem;'>
+                <div style='display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;'>
+                    <div style='display:flex; align-items:center; gap:20px;'>
+                        <img src='{avatar_url}' width='80' height='80' style='border-radius:16px; object-fit: cover; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 2px solid rgba(108,99,255,0.45); box-shadow: 0 4px 16px rgba(0,0,0,0.4);'/>
                         <div>
-                            <div style='font-size:16px; font-weight:700; color:#E8EBF0;'>Comparing against: {ref_player} {wc_badge}</div>
-                            <div style='font-size:12px; color:rgba(232,235,240,0.5); margin-top:2px; display:flex; align-items:center; gap:4px;'>
+                            <div style='font-size:20px; font-weight:700; color:#E8EBF0;'>Comparing against: {ref_player} {wc_badge}</div>
+                            <div style='font-size:13px; color:rgba(232,235,240,0.5); margin-top:4px; display:flex; align-items:center; gap:6px;'>
                                 📍 {r.get('pos','N/A')} &nbsp;&bull;&nbsp; 🏟 {r.get('squad','N/A')} &nbsp;&bull;&nbsp; 🌍 {r.get('league','N/A')} &nbsp;&bull;&nbsp; 💶 {mv} &nbsp;&bull;&nbsp; {flag_html} {nation}
                             </div>
                         </div>
@@ -1370,15 +1436,17 @@ def _demo_recommendations(df: pd.DataFrame, query_player: str, k: int) -> pd.Dat
 
 def main() -> None:
     """Main application entry point."""
+    mtime = get_csv_mtime()
+    
     # Load data
     with st.spinner("Loading player data..."):
-        df = load_player_data()
+        df = load_player_data(mtime)
 
     # Sidebar
     page, embedding_type, alpha = render_sidebar(df)
 
     # Load recommender (may fail if embeddings not built yet)
-    rec, load_error = load_recommender_cached(method="umap", alpha=alpha)
+    rec, load_error = load_recommender_cached(method="umap", alpha=alpha, mtime=mtime)
 
     if load_error:
         st.sidebar.warning(
