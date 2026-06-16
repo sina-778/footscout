@@ -173,4 +173,4 @@ Your project satisfies the work packages of the BHT evaluation criteria as follo
 
 ---
 
-*FootScout © 2026 — Master's Final Project for Data Science Workflow at Berliner Hochschule für Technik (BHT).*
+*FootScout © 2026 — Ebna Sina - Berliner Hochschule für Technik (BHT).*
