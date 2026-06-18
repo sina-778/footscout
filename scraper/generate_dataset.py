@@ -773,7 +773,7 @@ fbref_rows, tm_rows = [], []
 for name, squad, league, pos, age, nation in UNIQUE:
     is_elite = name in MV and MV[name] >= 60e6
     stats = gen_stats(pos, is_elite)
-    mins = int(np.random.randint(900, 3300))
+    mins = np.random.randint(900, 3300)
     mv = assign_mv(name, pos, age)
     
     is_wc = 1 if (name in world_cup_players or nation in WORLD_CUP_NATIONS) else 0

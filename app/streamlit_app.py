@@ -19,7 +19,17 @@ Design: Dark glassmorphism theme, Plotly charts, custom CSS.
 
 import sys
 import os
+import warnings
+import logging
 from pathlib import Path
+
+# ── Suppress harmless torchvision/transformers file-watcher warnings ─────────
+# Streamlit's local_sources_watcher inspects all loaded modules; optional
+# heavy-ML extras like torchvision trigger benign ModuleNotFoundErrors.
+warnings.filterwarnings("ignore", message=".*torchvision.*")
+warnings.filterwarnings("ignore", message=".*No module named.*")
+logging.getLogger("streamlit.watcher.local_sources_watcher").setLevel(logging.ERROR)
+os.environ.setdefault("TOKENIZERS_PARALLELISM", "false")
 
 # ── Path Setup ─────────────────────────────────────────────────────────────────
 # Ensure imports from src/ work when running from app/ directory
@@ -44,123 +54,176 @@ st.set_page_config(
     },
 )
 
-# ─── Custom CSS (Dark Glassmorphism Theme) ──────────────────────────────────────
+# ─── Custom CSS (Premium Dark Theme — v2) ─────────────────────────────────────
 st.markdown("""
 <style>
     /* ── Google Fonts ── */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap');
 
     /* ── Global Reset ── */
     html, body, [class*="css"] {
-        font-family: 'Inter', sans-serif;
+        font-family: 'Inter', 'Space Grotesk', sans-serif;
         color: #E8EBF0;
     }
 
-    /* ── App Background ── */
+    /* ── Animated App Background ── */
     .stApp {
-        background: linear-gradient(135deg, #0F1117 0%, #111827 40%, #0D1B2A 100%);
+        background:
+            radial-gradient(ellipse at 20% 10%, rgba(108,99,255,0.06) 0%, transparent 50%),
+            radial-gradient(ellipse at 80% 80%, rgba(0,210,168,0.04) 0%, transparent 50%),
+            linear-gradient(160deg, #0A0C14 0%, #0F1117 35%, #0D1520 70%, #090D14 100%);
         min-height: 100vh;
     }
 
     /* ── Sidebar ── */
     [data-testid="stSidebar"] {
-        background: rgba(15, 17, 26, 0.95);
-        border-right: 1px solid rgba(108, 99, 255, 0.2);
-        backdrop-filter: blur(20px);
+        background: linear-gradient(180deg, rgba(10,12,20,0.98) 0%, rgba(13,17,26,0.98) 100%);
+        border-right: 1px solid rgba(108,99,255,0.18);
+        backdrop-filter: blur(24px);
     }
     [data-testid="stSidebar"] .stMarkdown h1,
     [data-testid="stSidebar"] .stMarkdown h2,
     [data-testid="stSidebar"] .stMarkdown h3 {
-        color: #6C63FF;
+        color: #7B74FF;
     }
 
     /* ── Hero Header ── */
     .hero-header {
-        background: linear-gradient(135deg, rgba(108,99,255,0.15) 0%, rgba(0,210,168,0.08) 100%);
-        border: 1px solid rgba(108,99,255,0.25);
-        border-radius: 20px;
+        background: linear-gradient(135deg,
+            rgba(108,99,255,0.12) 0%,
+            rgba(70,60,220,0.08) 50%,
+            rgba(0,210,168,0.06) 100%);
+        border: 1px solid rgba(108,99,255,0.22);
+        border-radius: 24px;
         padding: 2.5rem 3rem;
         margin-bottom: 2rem;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 8px 32px rgba(108,99,255,0.1);
+        backdrop-filter: blur(20px);
+        box-shadow:
+            0 8px 40px rgba(108,99,255,0.12),
+            inset 0 1px 0 rgba(255,255,255,0.06);
+        position: relative;
+        overflow: hidden;
+    }
+    .hero-header::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -10%;
+        width: 300px;
+        height: 300px;
+        background: radial-gradient(circle, rgba(108,99,255,0.08) 0%, transparent 70%);
+        pointer-events: none;
     }
     .hero-title {
         font-family: 'Outfit', sans-serif;
-        font-size: 3rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #6C63FF 0%, #00D2A8 100%);
+        font-size: 2.8rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #8880FF 0%, #6C63FF 40%, #00D2A8 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         margin: 0;
         line-height: 1.1;
+        letter-spacing: -0.02em;
     }
     .hero-subtitle {
-        color: rgba(232, 235, 240, 0.7);
-        font-size: 1.1rem;
-        margin-top: 0.5rem;
+        color: rgba(200, 205, 220, 0.65);
+        font-size: 1.05rem;
+        margin-top: 0.6rem;
         font-weight: 400;
+        letter-spacing: 0.01em;
     }
 
     /* ── Glass Cards ── */
     .glass-card {
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 16px;
+        background: rgba(255,255,255,0.03);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 18px;
         padding: 1.5rem;
         margin-bottom: 1rem;
-        backdrop-filter: blur(10px);
-        box-shadow: 0 4px 16px rgba(0,0,0,0.2);
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        backdrop-filter: blur(12px);
+        box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+        transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease;
     }
     .glass-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 32px rgba(108,99,255,0.15);
+        transform: translateY(-3px);
+        box-shadow: 0 12px 40px rgba(108,99,255,0.18);
+        border-color: rgba(108,99,255,0.25);
     }
 
-    /* ── Player Card ── */
+    /* ── Premium Player Card ── */
     .player-card {
-        background: linear-gradient(135deg, rgba(108,99,255,0.1) 0%, rgba(0,210,168,0.06) 100%);
-        border: 1px solid rgba(108,99,255,0.3);
-        border-radius: 20px;
+        background: linear-gradient(135deg,
+            rgba(108,99,255,0.09) 0%,
+            rgba(70,60,220,0.06) 50%,
+            rgba(0,210,168,0.05) 100%);
+        border: 1px solid rgba(108,99,255,0.28);
+        border-radius: 22px;
         padding: 1.5rem;
         margin-bottom: 1rem;
+        position: relative;
+        overflow: hidden;
+    }
+    .player-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(108,99,255,0.5), transparent);
     }
     .player-name {
         font-family: 'Outfit', sans-serif;
-        font-size: 1.8rem;
-        font-weight: 700;
-        color: #6C63FF;
+        font-size: 1.75rem;
+        font-weight: 800;
+        background: linear-gradient(135deg, #8880FF 0%, #6C63FF 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
         margin: 0;
+        letter-spacing: -0.02em;
     }
     .player-meta {
-        color: rgba(232, 235, 240, 0.65);
-        font-size: 0.9rem;
-        margin-top: 0.3rem;
+        color: rgba(200,205,220,0.6);
+        font-size: 0.88rem;
+        margin-top: 0.35rem;
+        letter-spacing: 0.01em;
     }
 
     /* ── Metric Badge ── */
     .metric-badge {
         display: inline-flex;
         align-items: center;
-        background: rgba(108, 99, 255, 0.15);
-        border: 1px solid rgba(108, 99, 255, 0.3);
+        background: rgba(108,99,255,0.12);
+        border: 1px solid rgba(108,99,255,0.28);
         border-radius: 8px;
-        padding: 0.3rem 0.7rem;
-        font-size: 0.85rem;
+        padding: 0.3rem 0.75rem;
+        font-size: 0.82rem;
         font-weight: 600;
         color: #A89CFF;
         margin: 0.15rem;
+        letter-spacing: 0.02em;
+        transition: background 0.2s, transform 0.2s;
+    }
+    .metric-badge:hover {
+        background: rgba(108,99,255,0.2);
+        transform: translateY(-1px);
     }
     .metric-badge.green {
-        background: rgba(0, 210, 168, 0.12);
-        border-color: rgba(0, 210, 168, 0.3);
+        background: rgba(0,210,168,0.1);
+        border-color: rgba(0,210,168,0.28);
         color: #00D2A8;
     }
     .metric-badge.gold {
-        background: rgba(255, 193, 7, 0.12);
-        border-color: rgba(255, 193, 7, 0.3);
+        background: rgba(255,193,7,0.1);
+        border-color: rgba(255,193,7,0.28);
         color: #FFC107;
+    }
+    .metric-badge.rose {
+        background: rgba(248,87,166,0.1);
+        border-color: rgba(248,87,166,0.28);
+        color: #F857A6;
     }
 
     /* ── Result Table ── */
@@ -170,21 +233,21 @@ st.markdown("""
         border-spacing: 0 0.4rem;
     }
     .rec-table th {
-        color: rgba(232,235,240,0.5);
-        font-size: 0.8rem;
-        font-weight: 600;
+        color: rgba(200,205,220,0.45);
+        font-size: 0.75rem;
+        font-weight: 700;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.08em;
         padding: 0.5rem 0.8rem;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
+        border-bottom: 1px solid rgba(255,255,255,0.07);
     }
     .rec-table td {
-        background: rgba(255,255,255,0.03);
-        padding: 0.6rem 0.8rem;
-        font-size: 0.92rem;
+        background: rgba(255,255,255,0.025);
+        padding: 0.65rem 0.8rem;
+        font-size: 0.9rem;
     }
     .rec-table tr:hover td {
-        background: rgba(108,99,255,0.08);
+        background: rgba(108,99,255,0.07);
     }
 
     /* ── Similarity Bar ── */
@@ -194,77 +257,189 @@ st.markdown("""
         gap: 0.5rem;
     }
     .sim-bar {
-        height: 6px;
+        height: 5px;
         border-radius: 3px;
         background: linear-gradient(90deg, #6C63FF, #00D2A8);
     }
     .sim-value {
-        font-size: 0.8rem;
-        color: rgba(232,235,240,0.7);
+        font-size: 0.78rem;
+        color: rgba(200,205,220,0.65);
         white-space: nowrap;
-    }
-
-    /* ── Page Navigation Pills ── */
-    .nav-pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.4rem;
-        padding: 0.5rem 1rem;
-        border-radius: 50px;
-        font-size: 0.9rem;
-        font-weight: 500;
-        margin: 0.2rem;
-        cursor: pointer;
-        transition: all 0.2s;
+        font-weight: 600;
     }
 
     /* ── Section Title ── */
     .section-title {
         font-family: 'Outfit', sans-serif;
-        font-size: 1.4rem;
-        font-weight: 600;
+        font-size: 1.35rem;
+        font-weight: 700;
         color: white;
         margin-bottom: 1rem;
         display: flex;
         align-items: center;
         gap: 0.5rem;
+        letter-spacing: -0.01em;
+    }
+    .section-title::after {
+        content: '';
+        flex: 1;
+        height: 1px;
+        background: linear-gradient(90deg, rgba(108,99,255,0.3), transparent);
+        margin-left: 0.5rem;
+    }
+
+    /* ── Player Avatar Ring ── */
+    .avatar-ring {
+        border-radius: 14px;
+        border: 2px solid rgba(108,99,255,0.45);
+        box-shadow:
+            0 0 0 1px rgba(108,99,255,0.15),
+            0 8px 20px rgba(0,0,0,0.45),
+            0 0 20px rgba(108,99,255,0.12);
+        object-fit: cover;
+        background: rgba(30,32,50,0.8);
+        flex-shrink: 0;
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .avatar-ring:hover {
+        transform: scale(1.04);
+        box-shadow:
+            0 0 0 2px rgba(108,99,255,0.5),
+            0 12px 28px rgba(0,0,0,0.5),
+            0 0 30px rgba(108,99,255,0.2);
+    }
+
+    /* ── Rank Badge ── */
+    .rank-badge {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 28px;
+        height: 28px;
+        border-radius: 8px;
+        background: rgba(108,99,255,0.18);
+        border: 1px solid rgba(108,99,255,0.35);
+        font-size: 0.78rem;
+        font-weight: 800;
+        color: #9B94FF;
+        padding: 0 6px;
+        letter-spacing: 0.02em;
+        flex-shrink: 0;
+    }
+    .rank-badge.gold {
+        background: rgba(255,193,7,0.15);
+        border-color: rgba(255,193,7,0.4);
+        color: #FFC107;
+    }
+    .rank-badge.silver {
+        background: rgba(192,192,192,0.12);
+        border-color: rgba(192,192,192,0.3);
+        color: #C0C0C0;
+    }
+    .rank-badge.bronze {
+        background: rgba(205,127,50,0.12);
+        border-color: rgba(205,127,50,0.3);
+        color: #CD7F32;
     }
 
     /* ── Streamlit overrides ── */
     div[data-testid="stSelectbox"] > div,
     div[data-testid="stSlider"] > div,
     div[data-testid="stNumberInput"] > div {
-        background: rgba(255,255,255,0.04);
-        border-radius: 10px;
+        background: rgba(255,255,255,0.035);
+        border-radius: 12px;
     }
     .stButton > button {
-        background: linear-gradient(135deg, #6C63FF 0%, #5B52E8 100%);
+        background: linear-gradient(135deg, #6C63FF 0%, #5048E5 100%);
         color: white;
         border: none;
-        border-radius: 10px;
-        font-weight: 600;
-        padding: 0.6rem 1.5rem;
-        transition: all 0.2s;
+        border-radius: 12px;
+        font-family: 'Outfit', sans-serif;
+        font-weight: 700;
+        font-size: 0.95rem;
+        padding: 0.65rem 1.6rem;
+        transition: all 0.25s;
         width: 100%;
+        letter-spacing: 0.01em;
+        box-shadow: 0 4px 16px rgba(108,99,255,0.25);
     }
     .stButton > button:hover {
-        background: linear-gradient(135deg, #7C73FF 0%, #6B62F8 100%);
-        box-shadow: 0 4px 20px rgba(108,99,255,0.4);
-        transform: translateY(-1px);
+        background: linear-gradient(135deg, #7B73FF 0%, #6058F0 100%);
+        box-shadow: 0 6px 28px rgba(108,99,255,0.5);
+        transform: translateY(-2px);
+    }
+    .stButton > button:active {
+        transform: translateY(0px);
+        box-shadow: 0 2px 10px rgba(108,99,255,0.3);
     }
     div[data-testid="metric-container"] {
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.08);
-        border-radius: 12px;
-        padding: 0.8rem;
+        background: rgba(255,255,255,0.035);
+        border: 1px solid rgba(255,255,255,0.07);
+        border-radius: 14px;
+        padding: 0.9rem;
+        transition: border-color 0.2s;
+    }
+    div[data-testid="metric-container"]:hover {
+        border-color: rgba(108,99,255,0.2);
     }
     div[data-testid="metric-container"] label {
-        color: rgba(232,235,240,0.6) !important;
-        font-size: 0.8rem;
+        color: rgba(200,205,220,0.55) !important;
+        font-size: 0.78rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
     }
     div[data-testid="metric-container"] div[data-testid="stMetricValue"] {
         color: #A89CFF !important;
-        font-weight: 700;
+        font-weight: 800;
+        font-family: 'Outfit', sans-serif;
+        font-size: 1.4rem;
+    }
+
+    /* ── Nav radio styling ── */
+    div[data-testid="stRadio"] > div {
+        gap: 0.3rem;
+    }
+    div[data-testid="stRadio"] label {
+        border-radius: 10px;
+        padding: 0.5rem 0.8rem;
+        transition: background 0.2s;
+        cursor: pointer;
+    }
+    div[data-testid="stRadio"] label:hover {
+        background: rgba(108,99,255,0.08);
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,0.02); }
+    ::-webkit-scrollbar-thumb { background: rgba(108,99,255,0.3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(108,99,255,0.5); }
+
+    /* ── Toast / Info / Warning ── */
+    div[data-testid="stAlert"] {
+        border-radius: 12px;
+        border-left-width: 3px;
+    }
+
+    /* ── Input fields ── */
+    div[data-testid="stTextInput"] input {
+        border-radius: 12px;
+        border-color: rgba(108,99,255,0.3);
+        background: rgba(255,255,255,0.04);
+        color: #E8EBF0;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    div[data-testid="stTextInput"] input:focus {
+        border-color: rgba(108,99,255,0.6);
+        box-shadow: 0 0 0 2px rgba(108,99,255,0.15);
+    }
+
+    /* ── Multiselect tags ── */
+    span[data-baseweb="tag"] {
+        background: rgba(108,99,255,0.2) !important;
+        border: 1px solid rgba(108,99,255,0.4) !important;
+        border-radius: 8px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -497,33 +672,60 @@ def get_flag_and_nation_html(row: pd.Series) -> str:
     return f"{flag_html}<span>{nation_display}</span>"
 
 
+# Known bad image keywords — team photos, venue shots, wrong people scraped from Wikipedia
+_BAD_IMAGE_KEYWORDS = [
+    "Manchester_City", "Arsenal_", "Chelsea_", "Liverpool_", "Paris_Saint",
+    "Bayern_", "Real_Madrid", "Barcelona_", "Dortmund_", "Juventus_",
+    "Atletico_", "Inter_", "Milan_", "Leipzig_", "Crystal_Palace",
+    "MLS_All_Star", "Wembley", "Yokohama", "_vs_", "Cliff_Blue",
+    "Kyle_Daukaus", "Castleton", "FA_Cup_winner", "warm_up_versus",
+    "25-26_vs", "2023-07-19", "1_arsenal_crystal",
+]
+
+
+def _is_valid_player_image(url: str) -> bool:
+    """Return True if the URL looks like an individual player photo, not a team/venue shot."""
+    if not isinstance(url, str) or not url.strip().startswith("http"):
+        return False
+    url_lower = url.lower()
+    for kw in _BAD_IMAGE_KEYWORDS:
+        if kw.lower() in url_lower:
+            return False
+    return True
+
+
 def get_player_image_url(row: pd.Series, player_name: str) -> str:
     """
     Resolve the best image URL for a player.
     Priority:
     1. TheSportsDB CDN URL (browser-accessible, no hotlink blocking)
     2. Local file served via Streamlit static serving (app/static/players/)
-    3. Dicebear avatar fallback
+       — only if it maps to an individual player photo
+    3. Styled SVG initials avatar fallback (always works, looks premium)
     """
-    import urllib.parse
-
     # 1. TheSportsDB URL - freely browser-accessible CDN
     sdb_url = row.get("sportsdb_image_url")
-    if sdb_url and isinstance(sdb_url, str) and sdb_url.strip() and sdb_url.startswith("http"):
-        return sdb_url
+    if sdb_url and isinstance(sdb_url, str) and sdb_url.strip().startswith("http"):
+        return sdb_url.strip()
 
-    # 2. Check local downloaded image (Wikipedia photos served via Streamlit static)
+    # 2. Check local downloaded image (Streamlit static file serving)
     local_path = row.get("local_image_path")
-    if local_path and isinstance(local_path, str) and local_path.strip():
-        if local_path.startswith("app/static/"):
-            return "/" + local_path
-        full_path = PROJECT_ROOT / local_path
-        if full_path.exists():
-            return "/" + local_path
+    if local_path and isinstance(local_path, str):
+        local_path = local_path.strip()
+        if local_path:
+            # Verify the source image URL isn't a team/venue photo
+            source_url = row.get("image_url", "")
+            if _is_valid_player_image(source_url):
+                # Streamlit serves app/static/ at /app/static/ when enableStaticServing=True
+                if local_path.startswith("app/static/"):
+                    return "/" + local_path
+                # Also handle bare 'static/...' paths
+                full_path = PROJECT_ROOT / local_path
+                if full_path.exists():
+                    return "/" + local_path
 
-    # 3. Dicebear avatar fallback (always works)
-    encoded_name = urllib.parse.quote(player_name)
-    return f"https://api.dicebear.com/7.x/lorelei/svg?seed={encoded_name}&backgroundColor=b6e3f4,c0aade,d1d4f9"
+    # 3. Premium SVG initials avatar fallback
+    return get_player_avatar_svg(player_name)
 
 
 def get_player_avatar_url(name: str) -> str:
@@ -554,24 +756,25 @@ def similarity_bar_html(score: float) -> str:
         <div class='sim-bar' style='width: {pct}px; background: {color};'></div>
         <span class='sim-value'>{score:.3f}</span>
     </div>"""
-def get_player_avatar_svg(name: str) -> str:
-    """Generate a premium base64-encoded SVG circular avatar badge with initials and gradient background."""
+def get_player_avatar_svg(name: str, size: int = 88) -> str:
+    """Generate a premium base64-encoded SVG square rounded-corner avatar with initials."""
     import hashlib
     import base64
-    
+
     h = int(hashlib.md5(name.encode('utf-8')).hexdigest(), 16)
-    
+
     gradients = [
-        ("#6C63FF", "#3F37C9"), # Indigo-Purple
-        ("#00D2A8", "#0077B6"), # Turquoise-Blue
-        ("#FFC107", "#E63946"), # Amber-Red
-        ("#F72585", "#7209B7"), # Pink-Purple
-        ("#4CC9F0", "#4895EF"), # SkyBlue-Blue
-        ("#FF9F1C", "#FF4000"), # Orange-Red
-        ("#70E000", "#38B000"), # Green-Lime
+        ("#6C63FF", "#3F37C9", "#2D2880"),  # Deep Indigo
+        ("#00C49A", "#0077B6", "#023E8A"),  # Teal-Navy
+        ("#F4A261", "#E63946", "#9B1B30"),  # Amber-Crimson
+        ("#F72585", "#7209B7", "#480CA8"),  # Magenta-Violet
+        ("#4CC9F0", "#4361EE", "#3A0CA3"),  # Sky-Royal Blue
+        ("#FF9F1C", "#E76F51", "#C1440E"),  # Orange-Rust
+        ("#55A630", "#2DC653", "#007F5F"),  # Green
+        ("#7B2FBE", "#9D4EDD", "#5A189A"),  # Purple
     ]
-    c1, c2 = gradients[h % len(gradients)]
-    
+    c1, c2, c3 = gradients[h % len(gradients)]
+
     parts = [p for p in name.split() if p]
     if len(parts) >= 2:
         initials = (parts[0][0] + parts[-1][0]).upper()
@@ -579,38 +782,50 @@ def get_player_avatar_svg(name: str) -> str:
         initials = parts[0][:2].upper()
     else:
         initials = "FS"
-        
-    svg = f"""
-    <svg width='44' height='44' viewBox='0 0 44 44' fill='none' xmlns='http://www.w3.org/2000/svg'
-         style='border-radius:50%;border:1.5px solid rgba(255,255,255,0.25);box-shadow:0 2px 8px rgba(0,0,0,0.4);'>
-        <defs>
-            <linearGradient id='grad_{h}' x1='0%' y1='0%' x2='100%' y2='100%'>
-                <stop offset='0%' stop-color='{c1}' />
-                <stop offset='100%' stop-color='{c2}' />
-            </linearGradient>
-        </defs>
-        <circle cx='22' cy='22' r='22' fill='url(#grad_{h})' />
-        <text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle'
-              fill='#FFFFFF' font-size='14' font-family='Outfit, Inter, sans-serif'
-              font-weight='700' letter-spacing='0.5'>{initials}</text>
-    </svg>
-    """
+
+    r = 14  # corner radius for square
+    fs = size // 3  # font size
+    gid = f"g{h % 99999}"
+
+    svg = f"""<svg width='{size}' height='{size}' viewBox='0 0 {size} {size}' fill='none' xmlns='http://www.w3.org/2000/svg'>
+  <defs>
+    <linearGradient id='{gid}a' x1='0' y1='0' x2='{size}' y2='{size}' gradientUnits='userSpaceOnUse'>
+      <stop offset='0%' stop-color='{c1}'/>
+      <stop offset='60%' stop-color='{c2}'/>
+      <stop offset='100%' stop-color='{c3}'/>
+    </linearGradient>
+    <linearGradient id='{gid}b' x1='0' y1='0' x2='{size}' y2='0' gradientUnits='userSpaceOnUse'>
+      <stop offset='0%' stop-color='rgba(255,255,255,0.12)'/>
+      <stop offset='100%' stop-color='rgba(255,255,255,0)'/>
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width='{size}' height='{size}' rx='{r}' fill='url(#{gid}a)'/>
+  <!-- Subtle top sheen -->
+  <rect width='{size}' height='{size//2}' rx='{r}' fill='url(#{gid}b)' opacity='0.5'/>
+  <!-- Initials -->
+  <text x='50%' y='54%' dominant-baseline='middle' text-anchor='middle'
+        fill='rgba(255,255,255,0.95)' font-size='{fs}'
+        font-family='Outfit, Inter, Arial, sans-serif'
+        font-weight='800' letter-spacing='1'>{initials}</text>
+</svg>"""
     b64 = base64.b64encode(svg.encode('utf-8')).decode('utf-8')
     return f"data:image/svg+xml;base64,{b64}"
 
 
 def render_player_card(row: pd.Series, rank: int = 0, show_gem_badge: bool = False) -> None:
-    """Render a player recommendation card with fully inlined styles."""
+    """Render a premium player recommendation card with fully inlined styles."""
     import html as _html
     mv      = format_market_value(row.get("market_value_eur"))
     sim     = float(row.get("similarity", 0) or 0)
     sim_pct = f"{sim*100:.1f}%"
+    age     = row.get("age", row.get("age_tm", ""))
+    age_str = f" · Age {int(float(age))}" if age and str(age) not in ("nan", "N/A", "") else ""
 
     player_name = _html.escape(str(row.get("player", "N/A")))
     position    = _html.escape(str(row.get("position", row.get("pos", "N/A"))))
     squad       = _html.escape(str(row.get("squad", "N/A")))
     league      = _html.escape(str(row.get("league", "N/A")))
-    nation      = get_nation_str(row)
 
     def _stat(key: str) -> float:
         try:
@@ -618,65 +833,109 @@ def render_player_card(row: pd.Series, rank: int = 0, show_gem_badge: bool = Fal
         except (TypeError, ValueError):
             return 0.0
 
-    sim_color  = "#00D2A8" if sim >= 0.8 else ("#6C63FF" if sim >= 0.6 else "#FFC107")
-    rank_str   = f"#{rank}&nbsp;" if rank > 0 else ""
+    # Rank badge style
+    rank_cls = "gold" if rank == 1 else ("silver" if rank == 2 else ("bronze" if rank == 3 else ""))
+    rank_html = f"<span class='rank-badge {rank_cls}'>#{rank}</span> " if rank > 0 else ""
 
-    badge      = "display:inline-block;background:rgba(108,99,255,0.15);border:1px solid rgba(108,99,255,0.3);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:600;color:#A89CFF;margin:2px;"
-    badge_grn  = "display:inline-block;background:rgba(0,210,168,0.12);border:1px solid rgba(0,210,168,0.3);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:600;color:#00D2A8;margin:2px;"
-    badge_gold = "display:inline-block;background:rgba(255,193,7,0.12);border:1px solid rgba(255,193,7,0.3);border-radius:8px;padding:3px 10px;font-size:12px;font-weight:600;color:#FFC107;margin:2px;"
-    sim_badge  = f"display:inline-block;background:rgba(255,255,255,0.05);border:1px solid {sim_color}66;border-radius:8px;padding:3px 10px;font-size:12px;font-weight:700;color:{sim_color};margin:2px;"
-    gem_html   = f"<span style='{badge_gold}'>&#128142; Hidden Gem</span>" if show_gem_badge else ""
+    # Similarity color
+    if sim >= 0.82:
+        sim_color = "#00D2A8"
+        sim_bg    = "rgba(0,210,168,0.12)"
+        sim_bord  = "rgba(0,210,168,0.35)"
+    elif sim >= 0.65:
+        sim_color = "#8880FF"
+        sim_bg    = "rgba(108,99,255,0.12)"
+        sim_bord  = "rgba(108,99,255,0.35)"
+    else:
+        sim_color = "#FFC107"
+        sim_bg    = "rgba(255,193,7,0.1)"
+        sim_bord  = "rgba(255,193,7,0.3)"
 
-    # World Cup Badge
+    # Similarity bar fill
+    bar_width = max(4, int(sim * 80))
+
+    # Badge styles
+    b_purple = "display:inline-block;background:rgba(108,99,255,0.12);border:1px solid rgba(108,99,255,0.28);border-radius:8px;padding:3px 10px;font-size:11.5px;font-weight:600;color:#A89CFF;margin:2px;"
+    b_teal   = "display:inline-block;background:rgba(0,210,168,0.1);border:1px solid rgba(0,210,168,0.28);border-radius:8px;padding:3px 10px;font-size:11.5px;font-weight:600;color:#00D2A8;margin:2px;"
+    b_gold   = "display:inline-block;background:rgba(255,193,7,0.1);border:1px solid rgba(255,193,7,0.28);border-radius:8px;padding:3px 10px;font-size:11.5px;font-weight:600;color:#FFC107;margin:2px;"
+    gem_html = f"<span style='{b_gold}'>💎 Hidden Gem</span>" if show_gem_badge else ""
+
+    # World Cup badge
     wc_html = ""
     try:
-        is_wc = int(float(row.get("is_world_cup", 0)))
-        if is_wc == 1:
-            wc_html = f"<span style='{badge_grn}'>&#127942; WC 2026</span>"
+        if int(float(row.get("is_world_cup", 0))) == 1:
+            wc_html = f"<span style='{b_teal}'>🏆 WC 2026</span>"
     except Exception:
         pass
 
-    # Image: use local static file if available
-    img_url = get_player_image_url(row, player_name)
-    flag_and_nation = get_flag_and_nation_html(row)
+    # Market value color
+    mv_color = "#00D2A8"
 
-    st.markdown(
-        f"<div style='background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);"
-        f"border-radius:16px;padding:16px 20px;margin-bottom:12px;"
-        f"box-shadow:0 4px 16px rgba(0,0,0,0.2);'>"
-        f"<div style='display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px;align-items:center;'>"
-        f"<div style='display:flex;align-items:center;gap:16px;'>"
-        f"<img src='{img_url}' width='90' height='90' "
-        f"style='border-radius:12px;object-fit:cover;flex-shrink:0;"
-        f"background:rgba(255,255,255,0.05);"
-        f"border:2px solid rgba(108,99,255,0.35);"
-        f"box-shadow:0 4px 12px rgba(0,0,0,0.35);' "
-        f"onerror=\"this.src='https://api.dicebear.com/7.x/lorelei/svg?seed={player_name}'\"/>"
-        f"<div>"
-        f"<div style='font-size:16px;font-weight:700;color:#E8EBF0;'>{rank_str}{player_name}</div>"
-        f"<div style='font-size:13px;color:rgba(232,235,240,0.55);margin-top:5px;"
-        f"display:flex;align-items:center;flex-wrap:wrap;gap:5px;'>"
-        f"{flag_and_nation}"
-        f"<span style='color:rgba(255,255,255,0.25);'>&bull;</span><span>{position}</span>"
-        f"<span style='color:rgba(255,255,255,0.25);'>&bull;</span><span>{squad}</span>"
-        f"<span style='color:rgba(255,255,255,0.25);'>&bull;</span>"
-        f"<span style='color:rgba(232,235,240,0.35);font-size:12px;'>{league}</span>"
-        f"</div>"
-        f"</div>"
-        f"</div>"
-        f"<div style='display:flex;flex-wrap:wrap;gap:4px;align-items:center;'>"
-        f"<span style='{sim_badge}'>{sim_pct} match</span>"
-        f"<span style='{badge_grn}'>{mv}</span>"
-        f"{wc_html}{gem_html}"
-        f"</div></div>"
-        f"<div style='margin-top:10px;display:flex;flex-wrap:wrap;gap:4px;'>"
-        f"<span style='{badge}'>&#9917; {_stat('gls_per90'):.2f} G/90</span>"
-        f"<span style='{badge}'>&#127170; {_stat('ast_per90'):.2f} A/90</span>"
-        f"<span style='{badge}'>&#128200; {_stat('xg_per90'):.2f} xG/90</span>"
-        f"<span style='{badge}'>&#128737; {_stat('tackles_tkl_per90'):.2f} Tkl/90</span>"
-        f"</div></div>",
-        unsafe_allow_html=True,
+    # Image
+    img_src = get_player_image_url(row, player_name)
+    flag_nation_html = get_flag_and_nation_html(row)
+
+    # Stat bars (small progress indicators)
+    gls  = _stat("gls_per90")
+    ast  = _stat("ast_per90")
+    xg   = _stat("xg_per90")
+    tkl  = _stat("tackles_tkl_per90")
+    prog = _stat("prog_carries_per90")
+
+    # Detect if it's an SVG data URL (initials avatar)
+    is_svg_avatar = img_src.startswith("data:image/svg")
+    img_style = (
+        "width:88px;height:88px;border-radius:14px;object-fit:cover;flex-shrink:0;"
+        "border:2px solid rgba(108,99,255,0.4);box-shadow:0 6px 20px rgba(0,0,0,0.4),0 0 20px rgba(108,99,255,0.1);"
+        "background:rgba(20,22,40,0.8);"
     )
+
+    # Build card HTML via safe string concatenation (avoids markdown parser issues)
+    fallback_svg = get_player_avatar_svg(player_name)
+
+    parts = [
+        "<div style='background:linear-gradient(135deg,rgba(20,22,40,0.92) 0%,rgba(16,18,35,0.92) 100%);",
+        "border:1px solid rgba(108,99,255,0.2);border-radius:20px;padding:18px 22px;",
+        "margin-bottom:12px;box-shadow:0 4px 24px rgba(0,0,0,0.3),inset 0 1px 0 rgba(255,255,255,0.04);",
+        "position:relative;overflow:hidden;'>",
+        "<div style='position:absolute;top:0;left:0;right:0;height:1px;",
+        "background:linear-gradient(90deg,transparent,rgba(108,99,255,0.35),transparent);'></div>",
+        "<div style='display:flex;justify-content:space-between;flex-wrap:wrap;gap:14px;align-items:flex-start;'>",
+        # left
+        "<div style='display:flex;align-items:center;gap:18px;'>",
+        f"<img src='{img_src}' style='{img_style}' onerror=\"this.onerror=null;this.src='{fallback_svg}';\"/>",
+        "<div>",
+        f"<div style='display:flex;align-items:center;gap:8px;margin-bottom:6px;'>{rank_html}",
+        f"<span style='font-family:Outfit,sans-serif;font-size:17px;font-weight:800;color:#E8EBF0;'>{player_name}</span></div>",
+        f"<div style='font-size:12.5px;color:rgba(200,205,220,0.55);display:flex;align-items:center;flex-wrap:wrap;gap:4px;'>",
+        f"{flag_nation_html}",
+        f"<span style='color:rgba(255,255,255,0.2);'>&middot;</span>",
+        f"<span style='background:rgba(108,99,255,0.14);border-radius:5px;padding:1px 7px;color:#A89CFF;font-weight:600;'>{position}</span>",
+        f"<span style='color:rgba(255,255,255,0.2);'>&middot;</span><span>{squad}</span>",
+        f"<span style='color:rgba(255,255,255,0.2);'>&middot;</span>",
+        f"<span style='color:rgba(200,205,220,0.4);font-size:11.5px;'>{league}</span>",
+        f"<span style='color:rgba(200,205,220,0.35);'>{age_str}</span></div>",
+        f"<div style='margin-top:9px;display:flex;flex-wrap:wrap;gap:4px;'>",
+        f"<span style='{b_purple}'>\u26bd {gls:.2f} G/90</span>",
+        f"<span style='{b_purple}'>\U0001f170 {ast:.2f} A/90</span>",
+        f"<span style='{b_purple}'>\U0001f4c8 {xg:.2f} xG/90</span>",
+        f"<span style='{b_purple}'>\U0001f6e1 {tkl:.2f} Tkl/90</span>",
+        f"<span style='{b_purple}'>\U0001f3c3 {prog:.1f} Prog/90</span>",
+        "</div></div></div>",
+        # right
+        "<div style='display:flex;flex-direction:column;align-items:flex-end;gap:8px;'>",
+        f"<div style='background:{sim_bg};border:1px solid {sim_bord};border-radius:12px;padding:6px 14px;text-align:center;'>",
+        f"<div style='font-family:Outfit,sans-serif;font-size:20px;font-weight:800;color:{sim_color};line-height:1;'>{sim_pct}</div>",
+        "<div style='font-size:10px;color:rgba(200,205,220,0.45);margin-top:2px;text-transform:uppercase;letter-spacing:0.07em;'>match</div>",
+        "</div>",
+        f"<div style='font-family:Outfit,sans-serif;font-size:15px;font-weight:700;color:#00D2A8;'>{mv}</div>",
+        f"<div style='display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;'>{wc_html}{gem_html}</div>",
+        f"<div style='width:80px;height:4px;background:rgba(255,255,255,0.07);border-radius:2px;margin-top:4px;'>",
+        f"<div style='width:{bar_width}px;height:4px;background:linear-gradient(90deg,#6C63FF,{sim_color});border-radius:2px;'></div></div>",
+        "</div>",
+        "</div></div>",
+    ]
+    st.markdown("".join(parts), unsafe_allow_html=True)
 
 
 # ─── Sidebar Navigation ─────────────────────────────────────────────────────────
@@ -1606,7 +1865,7 @@ def _demo_recommendations(df: pd.DataFrame, query_player: str, k: int) -> pd.Dat
     sample = pool.sample(n, random_state=42).copy()
 
     np.random.seed(hash(query_player) % (2**31))
-    sample["similarity"] = np.sort(np.random.uniform(0.55, 0.97, n))[::-1].round(4)
+    sample["similarity"] = np.sort(np.random.uniform(0.55, 0.97, n))[::-1].round(4).tolist()
     sample["rank"]       = range(1, n + 1)
     # Map pos → position column so render_player_card finds it
     if "pos" in sample.columns:

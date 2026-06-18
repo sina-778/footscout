@@ -6,5 +6,6 @@
     "include": ["src", "app", "scraper", "notebooks"],
     "exclude": ["**/__pycache__", "**/*.pyc"],
     "typeCheckingMode": "basic",
-    "useLibraryCodeForTypes": true
+    "useLibraryCodeForTypes": true,
+    "extraPaths": ["."]
 }
