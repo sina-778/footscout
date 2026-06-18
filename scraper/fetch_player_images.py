@@ -36,7 +36,7 @@ def fetch_player_image(player_name: str) -> tuple[str, str | None]:
         "format": "json",
         "generator": "search",
         "gsrsearch": player_name,
-        "gsrlimit": 1,
+        "gsrlimit": 3,
         "prop": "pageimages",
         "piprop": "original",
         "pilicense": "any"
@@ -46,7 +46,9 @@ def fetch_player_image(player_name: str) -> tuple[str, str | None]:
         if r.status_code == 200:
             data = r.json()
             pages = data.get("query", {}).get("pages", {})
-            for page_id, page_data in pages.items():
+            # Sort pages by relevance index
+            sorted_pages = sorted(pages.values(), key=lambda p: p.get("index", 999))
+            for page_data in sorted_pages:
                 source = page_data.get("original", {}).get("source")
                 if source:
                     # Filter out logos, flags, or icons that are not player photos

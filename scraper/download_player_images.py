@@ -90,7 +90,9 @@ def fetch_wiki_image_url(player_name: str) -> str | None:
                     
                 data = r.json()
                 pages = data.get("query", {}).get("pages", {})
-                for page_data in pages.values():
+                # Sort pages by relevance index
+                sorted_pages = sorted(pages.values(), key=lambda p: p.get("index", 999))
+                for page_data in sorted_pages:
                     source = page_data.get("original", {}).get("source")
                     if not source:
                         continue
