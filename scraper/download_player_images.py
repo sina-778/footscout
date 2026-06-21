@@ -61,7 +61,7 @@ def safe_filename(name: str) -> str:
 
 def fetch_wiki_image_url(player_name: str) -> str | None:
     """Query Wikipedia API to get the best image URL for a player."""
-    for search_term in [player_name, player_name.split()[-1]]:
+    for search_term in [player_name]:
         params = {
             "action": "query",
             "format": "json",
