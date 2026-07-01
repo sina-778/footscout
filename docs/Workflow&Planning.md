@@ -459,15 +459,15 @@ To know if the recommendations are actually good, we need to measure them agains
 
 | Embedding Type | Method | k | Precision@k | Recall@k | NDCG@k |
 |:---|:---|---:|:---|:---|:---|
-| **hybrid** | position_based | 3 | **1.0000** (100%) | 0.0106 | 1.0000 |
-| **hybrid** | position_based | 5 | **1.0000** (100%) | 0.0177 | 1.0000 |
-| **hybrid** | position_based | 10 | **1.0000** (100%) | 0.0354 | 1.0000 |
+| **hybrid** | position_based | 3 | **1.0000** (100%) | 0.0116 | 1.0000 |
+| **hybrid** | position_based | 5 | **1.0000** (100%) | 0.0193 | 1.0000 |
+| **hybrid** | position_based | 10 | **1.0000** (100%) | 0.0386 | 1.0000 |
 | **hybrid** | transfermarkt | 3 | **0.1333 (13.3%)** | 0.0767 (7.7%) | 0.1235 |
 | **hybrid** | transfermarkt | 5 | **0.0800 (8.0%)** | 0.0767 (7.7%) | 0.0892 |
-| **hybrid** | transfermarkt | 10 | **0.0500 (5.0%)** | 0.0933 (9.3%) | 0.0957 |
-| **stat** | position_based | 3 | 1.0000 (100%) | 0.0106 | 1.0000 |
-| **stat** | transfermarkt | 3 | 0.0667 (6.7%) | 0.0343 (3.4%) | 0.0469 |
-| **text** | position_based | 3 | 0.8067 (80.7%) | 0.0085 | 0.8082 |
+| **hybrid** | transfermarkt | 10 | **0.0500 (5.0%)** | 0.0933 (9.3%) | 0.0964 |
+| **stat** | position_based | 3 | 1.0000 (100%) | 0.0116 | 1.0000 |
+| **stat** | transfermarkt | 3 | 0.0333 (3.3%) | 0.0200 (2.0%) | 0.0469 |
+| **text** | position_based | 3 | 0.8036 (80.4%) | 0.0094 | 0.8016 |
 | **text** | transfermarkt | 3 | 0.0333 (3.3%) | 0.0167 (1.7%) | 0.0469 |
 
 **Key insight:** Hybrid embeddings perform best in both evaluation methods. Text-only embeddings are worse at position detection but competitive on the Transfermarkt benchmark at higher k values.
@@ -768,7 +768,7 @@ Then open the URL shown in terminal (usually http://localhost:8501).
 ### Dataset Summary
 | Metric | Value |
 |--------|-------|
-| Total unique players | **1,539** |
+| Total unique players | **1,474** |
 | Leagues covered | **5 European + World Cup 2026** |
 | Nations represented | **48+** |
 | Image coverage | **95.1% (1,464 photos)** |

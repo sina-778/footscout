@@ -9,7 +9,7 @@
 
 FootScout is a state-of-the-art football player recommender system designed to assist recruiters, analysts, and clubs in scouting players. By constructing a hybrid vector space that blends **per-90 statistical performance metrics** (compressed via UMAP to 32 dimensions) and **semantic text descriptors** (via Sentence-Transformers), FootScout computes high-precision cosine similarities to identify players with matching profiles. 
 
-The project contains a master cohort of **1,539 unique players** featuring domestic club profiles and authentic squads for the **2026 FIFA World Cup**, achieving an **image coverage rate of 95.1%** for the player base.
+The project contains a master cohort of **1,474 unique players** featuring domestic club profiles and authentic squads for the **2026 FIFA World Cup**, achieving an **image coverage rate of 95.1%** for the player base.
 
 ---
 
@@ -146,25 +146,25 @@ Your project satisfies the work packages of the BHT evaluation criteria as follo
 | **Performance Evaluation\*** | ✅ Complete | Evaluated models using Precision@k, Recall@k, and NDCG@k metrics against position categories and TM editorial benchmarks (see results table below). |
 | **Frontend UI** | ✅ Complete | Premium dark glassmorphism dashboard built with Streamlit, Plotly radar visualizer, FlagCDN flags, and TheSportsDB player images with SVG fallback. |
 
-### Recommender Evaluation Metrics (1,539 Players Database)
+### Recommender Evaluation Metrics (1,474 Players Database)
 
 | Embedding Type | Evaluation Method | k | Precision@k | Recall@k | NDCG@k |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **hybrid** | position_based | 3 | 1.0000 | 0.0106 | 1.0000 |
-| **hybrid** | position_based | 5 | 1.0000 | 0.0177 | 1.0000 |
-| **hybrid** | position_based | 10 | 1.0000 | 0.0354 | 1.0000 |
+| **hybrid** | position_based | 3 | 1.0000 | 0.0116 | 1.0000 |
+| **hybrid** | position_based | 5 | 1.0000 | 0.0193 | 1.0000 |
+| **hybrid** | position_based | 10 | 1.0000 | 0.0386 | 1.0000 |
 | **hybrid** | transfermarkt_benchmark | 3 | **0.1333 (13.3%)** | **0.0767 (7.7%)** | **0.1235 (12.4%)** |
 | **hybrid** | transfermarkt_benchmark | 5 | **0.0800 (8.0%)** | **0.0767 (7.7%)** | **0.0892 (8.9%)** |
-| **hybrid** | transfermarkt_benchmark | 10 | **0.0500 (5.0%)** | **0.0933 (9.3%)** | **0.0957 (9.6%)** |
-| **stat** | position_based | 3 | 1.0000 | 0.0106 | 1.0000 |
-| **stat** | position_based | 5 | 1.0000 | 0.0177 | 1.0000 |
-| **stat** | position_based | 10 | 1.0000 | 0.0354 | 1.0000 |
-| **stat** | transfermarkt_benchmark | 3 | 0.0667 (6.7%) | 0.0343 (3.4%) | 0.0469 (4.7%) |
-| **stat** | transfermarkt_benchmark | 5 | 0.0400 (4.0%) | 0.0343 (3.4%) | 0.0339 (3.4%) |
-| **stat** | transfermarkt_benchmark | 10 | 0.0500 (5.0%) | 0.0876 (8.8%) | 0.0584 (5.8%) |
-| **text** | position_based | 3 | 0.8067 | 0.0085 | 0.8082 |
-| **text** | position_based | 5 | 0.8020 | 0.0143 | 0.8046 |
-| **text** | position_based | 10 | 0.7890 | 0.0281 | 0.7945 |
+| **hybrid** | transfermarkt_benchmark | 10 | **0.0500 (5.0%)** | **0.0933 (9.3%)** | **0.0964 (9.6%)** |
+| **stat** | position_based | 3 | 1.0000 | 0.0116 | 1.0000 |
+| **stat** | position_based | 5 | 1.0000 | 0.0193 | 1.0000 |
+| **stat** | position_based | 10 | 1.0000 | 0.0386 | 1.0000 |
+| **stat** | transfermarkt_benchmark | 3 | 0.0333 (3.3%) | 0.0200 (2.0%) | 0.0469 (4.7%) |
+| **stat** | transfermarkt_benchmark | 5 | 0.0600 (6.0%) | 0.0567 (5.7%) | 0.0616 (6.2%) |
+| **stat** | transfermarkt_benchmark | 10 | 0.0500 (5.0%) | 0.0933 (9.3%) | 0.0800 (8.0%) |
+| **text** | position_based | 3 | 0.8036 | 0.0094 | 0.8016 |
+| **text** | position_based | 5 | 0.8179 | 0.0160 | 0.8118 |
+| **text** | position_based | 10 | 0.7768 | 0.0304 | 0.7857 |
 | **text** | transfermarkt_benchmark | 3 | 0.0333 (3.3%) | 0.0167 (1.7%) | 0.0469 (4.7%) |
 | **text** | transfermarkt_benchmark | 5 | 0.0800 (8.0%) | 0.0767 (7.7%) | 0.0763 (7.6%) |
 | **text** | transfermarkt_benchmark | 10 | 0.0500 (5.0%) | 0.0933 (9.3%) | 0.0813 (8.1%) |
