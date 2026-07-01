@@ -3,6 +3,8 @@
 
 > **Master's Final Project — Data Science Workflow, BHT Berlin**
 
+**Live App:** [https://footscout.streamlit.app/](https://footscout.streamlit.app/)
+
 ---
 
 ## 🌟 Overview

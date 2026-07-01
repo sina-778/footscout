@@ -50,7 +50,7 @@ st.set_page_config(
     initial_sidebar_state="expanded",
     menu_items={
         "Get Help": "https://github.com/footscout",
-        "About": "FootScout — AI-Powered Football Player Recommender | BHT Berlin Master's Project",
+        "About": "FootScout — AI-Powered Football Player Recommender | Ebna Sina, BHT Berlin Master's Project",
     },
 )
 
@@ -993,7 +993,7 @@ def render_sidebar(df: pd.DataFrame) -> tuple[str, str, float]:
         st.markdown(f"""
         <div style='color:rgba(232,235,240,0.45); font-size:0.78rem; text-align:center;'>
             {len(df):,} players loaded<br>
-            BHT Berlin · DS Workflow 2026
+            Ebna Sina · BHT Berlin
         </div>
         """, unsafe_allow_html=True)
 
