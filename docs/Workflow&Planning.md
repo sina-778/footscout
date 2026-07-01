@@ -53,7 +53,7 @@ The project has **6 phases** that form a pipeline:
 │  PHASE 1: DATA COLLECTION                                                   │
 │  ┌──────────────┐  ┌─────────────────┐  ┌────────────────────────────┐     │
 │  │ FBref        │  │ Transfermarkt   │  │ Wikipedia (WC 2026 squads) │     │
-│  │ (stats)      │  │ (market values) │  │ (player images, squads)    │     │
+│  │ (stats)      │  │ (market values) │  │ (squad data)               │     │
 │  └──────┬───────┘  └───────┬─────────┘  └───────────┬────────────────┘     │
 │         │                  │                         │                      │
 │         ▼                  ▼                         ▼                      │
@@ -130,9 +130,9 @@ footscout/
 │   ├── merge.py                   # Joins FBref + Transfermarkt data
 │   ├── generate_dataset.py        # Creates synthetic test data
 │   ├── generate_benchmark.py      # Creates evaluation benchmark
-│   ├── download_player_images.py  # Downloads player photos from Wikipedia
-│   ├── fetch_player_images.py     # Earlier version of image fetching
-│   └── fetch_sportsdb_images.py   # Fetches images from TheSportsDB
+│   ├── download_player_images.py  # Downloads photos from Wikipedia (deprecated)
+│   ├── fetch_player_images.py     # Earlier version of image fetching (deprecated)
+│   └── fetch_sportsdb_images.py   # Fetches images from TheSportsDB API
 │
 ├── app/
 │   ├── streamlit_app.py           # The web application (1653 lines)
@@ -220,13 +220,12 @@ The scraper also collects "Similar Players" lists from Transfermarkt for 30 top 
 - Assigns them stats based on the **position average** of existing players at 70% strength (conservative estimate)
 - Marks them with `is_world_cup = 1`
 
-### 4.5 Image Collection (Multiple Files)
+### 4.5 Image Collection (Multiple Sources)
 
-The project collects player photos from **3 sources** with a priority system:
+The project collects player photos from **2 sources** with a priority system:
 
-1. **TheSportsDB** (best, no hotlink blocking) — `scraper/fetch_sportsdb_images.py`
-2. **Wikipedia** (downloaded locally) — `scraper/download_player_images.py`
-3. **DiceBear** (fallback cartoon avatar) — generated on-the-fly in the web app
+1. **TheSportsDB** (best, browser-accessible CDN) — `scraper/fetch_sportsdb_images.py`
+2. **DiceBear** (fallback cartoon avatar) — generated on-the-fly in the web app
 
 The result: **95.1% of 1,539 players have real photos** (1,464 images).
 
@@ -282,9 +281,9 @@ The merged CSV contains ~25 columns per player:
 | `market_value_eur` | Market value in EUR | 180000000 |
 | `_match_score` | How well names matched | 95.3 |
 | `_match_strategy` | How match was made | "full_key" |
-| `image_url` | Wikipedia image URL | https://... |
+| `image_url` | Source image URL | https://... |
 | `local_image_path` | Local photo file path | app/static/players/... |
-| `sportsdb_image_url` | TheSportsDB image URL | https://... |
+| `sportsdb_image_url` | TheSportsDB image URL (preferred) | https://... |
 
 ---
 
@@ -552,7 +551,7 @@ Display results (filter by country if selected)
 ### 9.3 UI Features
 
 1. **Dark glassmorphism theme** — gradient backgrounds, blur effects, translucent cards
-2. **Real player photos** — 95.1% of players have actual photos (Wikipedia + TheSportsDB)
+2. **Real player photos** — 95.1% of players have actual photos (TheSportsDB API + SVG fallback)
 3. **Country flag badges** — using FlagCDN service with full ISO-3 code mapping
 4. **Smart avatar fallback** — DiceBear generates unique cartoon avatars for players without photos
 5. **Circular gradient avatar badges** — for small profile pictures, generates SVG with player initials
@@ -612,8 +611,8 @@ Display results (filter by country if selected)
 | `merge.py` | 296 | Fuzzy join of FBref + TM data |
 | `generate_dataset.py` | 798 | Synthetic data generator |
 | `generate_benchmark.py` | 101 | Creates evaluation benchmark from curated lists |
-| `download_player_images.py` | 289 | Downloads photos from Wikipedia |
-| `fetch_player_images.py` | 98 | Earlier version of Wikipedia image fetcher |
+| `download_player_images.py` | 289 | Downloads photos from Wikipedia (deprecated — use fetch_sportsdb_images.py) |
+| `fetch_player_images.py` | 98 | Earlier version of image fetcher (deprecated) |
 | `fetch_sportsdb_images.py` | 221 | Fetches images from TheSportsDB API |
 
 ### 10.3 Web App (`app/streamlit_app.py` - 1653 lines)
@@ -671,8 +670,8 @@ python scraper/wc2026_squads_scraper.py
 # Merge FBref stats with Transfermarkt data
 python scraper/merge.py
 
-# Fetch player images
-python scraper/download_player_images.py
+# Fetch player images from TheSportsDB API
+python scraper/fetch_sportsdb_images.py
 ```
 
 ### Step 3: Build Embeddings (Skip if pre-built)
@@ -795,6 +794,6 @@ Then open the URL shown in terminal (usually http://localhost:8501).
 
 4. **Two evaluation methods** — position-based (automated) + human-curated benchmark (Transfermarkt editors), providing rigorous validation
 
-5. **Real player photos** — 95.1% coverage with multiple fallback sources makes the app feel professional
+5. **Real player photos** — 95.1% coverage via TheSportsDB API with SVG avatar fallback makes the app feel professional
 
 6. **Natural language interface** — non-technical users can search in plain English without learning query syntax

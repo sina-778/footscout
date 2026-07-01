@@ -672,7 +672,7 @@ def get_flag_and_nation_html(row: pd.Series) -> str:
     return f"{flag_html}<span>{nation_display}</span>"
 
 
-# Known bad image keywords — team photos, venue shots, wrong people scraped from Wikipedia
+# Known bad image keywords — team photos, venue shots, wrong people
 _BAD_IMAGE_KEYWORDS = [
     "Manchester_City", "Arsenal_", "Chelsea_", "Liverpool_", "Paris_Saint",
     "Bayern_", "Real_Madrid", "Barcelona_", "Dortmund_", "Juventus_",
@@ -703,12 +703,13 @@ def get_player_image_url(row: pd.Series, player_name: str) -> str:
        — only if it maps to an individual player photo
     3. Styled SVG initials avatar fallback (always works, looks premium)
     """
-    # 1. TheSportsDB URL - freely browser-accessible CDN
+    # 1. TheSportsDB URL - freely browser-accessible CDN (works on Cloud too)
     sdb_url = row.get("sportsdb_image_url")
     if sdb_url and isinstance(sdb_url, str) and sdb_url.strip().startswith("http"):
         return sdb_url.strip()
 
     # 2. Check local downloaded image (Streamlit static file serving)
+    #    Only works when running locally or if images are committed to repo
     local_path = row.get("local_image_path")
     if local_path and isinstance(local_path, str):
         local_path = local_path.strip()
@@ -718,13 +719,15 @@ def get_player_image_url(row: pd.Series, player_name: str) -> str:
             if _is_valid_player_image(source_url):
                 # Streamlit serves app/static/ at /app/static/ when enableStaticServing=True
                 if local_path.startswith("app/static/"):
-                    return "/" + local_path
+                    full_path = PROJECT_ROOT / local_path
+                    if full_path.exists():
+                        return "/" + local_path
                 # Also handle bare 'static/...' paths
                 full_path = PROJECT_ROOT / local_path
                 if full_path.exists():
                     return "/" + local_path
 
-    # 3. Premium SVG initials avatar fallback
+    # 3. Premium SVG initials avatar fallback (always works, no external deps)
     return get_player_avatar_svg(player_name)
 
 

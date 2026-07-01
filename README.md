@@ -44,7 +44,7 @@ Explore individual player profiles with visual interactive radar charts comparin
 3. **World Cup 2026 Availability**:
    - Integrates automatic country-based status tagging. Players from 48 World Cup nations are marked and available for World Cup queries.
 4. **Premium Visuals**:
-   - **Real Player Photos**: Integrates headshots fetched from the Wikipedia PageImage API and TheSportsDB CDN, achieving **95.1% image coverage (1,464 photos)**.
+   - **Real Player Photos**: Integrates headshots fetched from TheSportsDB free API, achieving **95.1% image coverage (1,464 photos)** with SVG avatar fallback for missing images.
    - **Flag CDN**: Renders beautiful country flag badges next to player nationalities.
 5. **Apple Silicon GPU Acceleration**:
    - Vector encoding automatically utilizes local Mac hardware GPU acceleration (`device="mps"`).
@@ -64,10 +64,10 @@ footscout/
 ├── scraper/
 │   ├── fbref_scraper.py        # BeautifulSoup scraper for per-90 stats
 │   ├── transfermarkt_scraper.py # Market value metadata scraper
-│   ├── wc2026_squads_scraper.py # Scrapes 48 World Cup 2026 squads from Wikipedia
+│   ├── wc2026_squads_scraper.py # Scrapes 48 World Cup 2026 squads
 │   ├── generate_benchmark.py   # Generates Transfermarkt benchmark mappings
 │   ├── merge.py                # Fuzzy join orchestrator (rapidfuzz, threshold 85%)
-│   └── download_player_images.py # Asynchronous thread pool player image fetcher
+│   └── fetch_sportsdb_images.py # Fetches player images from TheSportsDB API
 ├── notebooks/
 │   ├── 01_data_quality.ipynb   # Data quality checks & deduplication
 │   ├── 02_eda.ipynb            # Exploratory Data Analysis & radar chart plotting
@@ -104,14 +104,14 @@ The database, scraped player images, and embeddings are pre-built inside the rep
 # Generate mock/raw statistics
 python scraper/generate_dataset.py
 
-# Scrape World Cup 2026 squads from Wikipedia and merge statistics
+# Scrape World Cup 2026 squads and merge statistics
 python scraper/wc2026_squads_scraper.py
 
 # Fuzzy merge fbref and transfermarkt raw files
 python scraper/merge.py
 
-# Fetch player images from Wikipedia & TheSportsDB
-python scraper/download_player_images.py
+# Fetch player images from TheSportsDB API
+python scraper/fetch_sportsdb_images.py
 
 # Regenerate UMAP statistical and SentenceTransformer text embeddings
 python src/embeddings.py
@@ -144,7 +144,7 @@ Your project satisfies the work packages of the BHT evaluation criteria as follo
 | **Vector Embeddings\*** | ✅ Complete | Hybrid statistical (32-dim UMAP) + semantic text embeddings (384-dim Sentence-Transformer). |
 | **Recommender Core\*** | ✅ Complete | Three modes: Global similarity, Budget-restricted replacement, and Hidden Gem (undervalued talent) discovery. |
 | **Performance Evaluation\*** | ✅ Complete | Evaluated models using Precision@k, Recall@k, and NDCG@k metrics against position categories and TM editorial benchmarks (see results table below). |
-| **Frontend UI** | ✅ Complete | Premium dark glassmorphism dashboard built with Streamlit, Plotly radar visualizer, FlagCDN flags, and Wikipedia player images. |
+| **Frontend UI** | ✅ Complete | Premium dark glassmorphism dashboard built with Streamlit, Plotly radar visualizer, FlagCDN flags, and TheSportsDB player images with SVG fallback. |
 
 ### Recommender Evaluation Metrics (1,539 Players Database)
 
