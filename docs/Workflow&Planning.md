@@ -319,9 +319,34 @@ The project creates **two different types** of player fingerprints and combines 
 > *"Erling Haaland is a 24-year-old FW playing for Manchester City in the Premier League. He scores 0.92 goals per 90 minutes, records 0.18 assists per 90, completes 74% of passes, generates 0.85 xG per 90, and makes 0.31 tackles per 90 minutes."*
 
 **Solution — Sentence-Transformers (AI language model):**
-- A pre-trained AI model (`all-MiniLM-L6-v2`) converts this text into a **384-number vector**
-- This captures the **semantic meaning** — it knows that "striker" and "forward" are similar concepts
-- Apple Silicon (MPS) GPU acceleration is used for speed
+
+A pre-trained AI model converts this text into a **384-number vector** that captures semantic meaning.
+
+**Model: `all-MiniLM-L6-v2`**
+
+| Property | Value |
+|----------|-------|
+| **Architecture** | MiniLM (Transformer-based, 6 layers) |
+| **Parameters** | ~22.7 million |
+| **Hidden Size** | 384 dimensions |
+| **Attention Heads** | 12 |
+| **Max Sequence Length** | 256 tokens |
+| **Vocabulary Size** | 30,522 tokens |
+| **Training Data** | 1B+ sentence pairs (NLI + STS benchmarks) |
+| **License** | Apache 2.0 (free for commercial/academic use) |
+| **Framework** | PyTorch + HuggingFace Transformers |
+
+**Why this model?**
+- **Small & fast**: Only 22.7M parameters (vs. 110M+ for BERT-base), runs efficiently on CPU/GPU
+- **High quality**: Despite its small size, it achieves 86.1% on STS benchmark (competitive with larger models)
+- **384-dim output**: Compact representation that balances expressiveness with computational efficiency
+- **Apple Silicon support**: Automatically uses MPS GPU acceleration for faster encoding
+
+**How it works in FootScout:**
+1. Generate a text profile for each player from their stats
+2. The model tokenizes the text and runs it through 6 Transformer layers
+3. The [CLS] token embedding (384 dimensions) becomes the player's text fingerprint
+4. This captures semantic relationships (e.g., "striker" ≈ "forward", "tackles" ≈ "defensive")
 
 #### C. Hybrid Embedding (The Best of Both)
 
@@ -730,8 +755,8 @@ Then open the URL shown in terminal (usually http://localhost:8501).
 |---------|---------|
 | **scikit-learn** | StandardScaler, PCA, cosine similarity |
 | **umap-learn** | Dimensionality reduction (UMAP) |
-| **sentence-transformers** | Text to semantic embeddings |
-| **torch (PyTorch)** | Deep learning backend for Sentence-Transformers |
+| **sentence-transformers** | Text to semantic embeddings using `all-MiniLM-L6-v2` (22.7M params, 384-dim output) |
+| **torch (PyTorch)** | Deep learning backend for Sentence-Transformers (MPS GPU acceleration on Apple Silicon) |
 | **transformers** | HuggingFace AI models |
 
 ### Fuzzy Matching
