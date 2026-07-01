@@ -1522,10 +1522,10 @@ def page_ai_scout(df: pd.DataFrame, rec, embedding_type: str) -> None:
                     if len(match_clean) < 3:
                         continue
                     # Fuzzy match the extracted segment against database
-                    res = rf_process.extractOne(match_clean, player_names, scorer=rf_fuzz.token_sort_ratio)
+                    res = rf_process.extractOne(match_clean, player_names, scorer=rf_fuzz.WRatio)
                     if res:
                         name, score, _ = res
-                        if score >= 75:  # threshold of 75%
+                        if score >= 60:  # threshold of 60% for typo tolerance
                             ref_player = name
                             extracted_name_segment = match_clean
                             break
@@ -1539,6 +1539,13 @@ def page_ai_scout(df: pd.DataFrame, rec, embedding_type: str) -> None:
             best_score = 0
             best_segment = ""
             
+            # Build last-name lookup for better typo matching
+            last_name_map = {}
+            for name in player_names:
+                parts = name.split()
+                if len(parts) >= 2:
+                    last_name_map[parts[-1].lower()] = name
+            
             for n in range(1, min(4, len(words) + 1)):
                 for i in range(len(words) - n + 1):
                     ngram = " ".join(words[i:i+n])
@@ -1546,10 +1553,23 @@ def page_ai_scout(df: pd.DataFrame, rec, embedding_type: str) -> None:
                         continue
                     if ngram in ["i want a", "looking for", "under a", "under", "million"]:
                         continue
-                    res = rf_process.extractOne(ngram, player_names, scorer=rf_fuzz.token_sort_ratio)
+                    
+                    # Try last-name matching first (better for typos like "mesi" -> "Messi")
+                    res_last = rf_process.extractOne(ngram, list(last_name_map.keys()), scorer=rf_fuzz.WRatio)
+                    if res_last and res_last[1] >= 60:
+                        candidate = last_name_map[res_last[0]]
+                        score = res_last[1]
+                        if score > best_score:
+                            best_name = candidate
+                            best_score = score
+                            best_segment = ngram
+                        continue
+                    
+                    # Fall back to full name matching
+                    res = rf_process.extractOne(ngram, player_names, scorer=rf_fuzz.WRatio)
                     if res:
                         name, score, _ = res
-                        if score >= 80 and score > best_score:
+                        if score >= 60 and score > best_score:
                             best_name = name
                             best_score = score
                             best_segment = ngram

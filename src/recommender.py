@@ -124,15 +124,37 @@ class FootScoutRecommender:
         # 3. Fuzzy fallback (rapidfuzz)
         try:
             from rapidfuzz import process as rfuzz_process, fuzz as rfuzz
+            
+            # Try last-name-only matching first (better for short queries like "mesi")
+            last_names = {}
+            for name in self.df[self.player_col].dropna():
+                name_str = str(name)
+                if ' ' in name_str:
+                    last = name_str.split()[-1].lower()
+                    last_names[last] = name_str.lower()
+            result = rfuzz_process.extractOne(
+                query_lower,
+                list(last_names.keys()),
+                scorer=rfuzz.WRatio,
+                score_cutoff=55,
+            )
+            if result:
+                best_last, score, _ = result
+                if score >= 60:
+                    best_name = last_names[best_last]
+                    logger.info("Fuzzy match (last name): '%s' → '%s' (score=%d)", query, best_name, score)
+                    return self._name_to_idx[best_name]
+            
+            # Fall back to full name matching
             result = rfuzz_process.extractOne(
                 query_lower,
                 list(self._name_to_idx.keys()),
-                scorer=rfuzz.token_sort_ratio,
-                score_cutoff=70,
+                scorer=rfuzz.WRatio,
+                score_cutoff=55,
             )
             if result:
                 best_name, score, _ = result
-                logger.info("Fuzzy match: '%s' → '%s' (score=%d)", query, best_name, score)
+                logger.info("Fuzzy match (full name): '%s' → '%s' (score=%d)", query, best_name, score)
                 return self._name_to_idx[best_name]
         except ImportError:
             pass
