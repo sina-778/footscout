@@ -1088,7 +1088,7 @@ def page_player_finder(df: pd.DataFrame, rec, embedding_type: str) -> None:
         from src.recommender import get_radar_data, make_radar_figure
         radar_data = get_radar_data(selected_player, df, position_avg=True)
         fig = make_radar_figure(radar_data, show_average=True)
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
     except Exception as e:
         st.warning(f"Radar chart unavailable: {e}")
 
@@ -1134,7 +1134,7 @@ def page_player_finder(df: pd.DataFrame, rec, embedding_type: str) -> None:
                 height=280,
             )
             fig_bar.update_xaxes(tickangle=-30)
-            st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
+            st.plotly_chart(fig_bar, width="stretch", config={"displayModeBar": False})
     else:
         st.info("No recommendations found.")
 
@@ -1264,7 +1264,7 @@ def page_budget_scout(df: pd.DataFrame, rec) -> None:
                     annotation_text=f"Budget €{budget_m}M",
                     annotation_font_color="rgba(255,99,99,0.9)",
                 )
-                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+                st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
         else:
             st.warning("No players found within budget constraints. Try increasing the budget.")
 
@@ -1419,7 +1419,7 @@ def page_hidden_gems(df: pd.DataFrame, rec) -> None:
                     height=380,
                     margin=dict(t=60, b=40),
                 )
-                st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+                st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
         else:
             st.warning(
                 "No gems found matching the current criteria. "
@@ -1850,7 +1850,7 @@ def page_ai_scout(df: pd.DataFrame, rec, embedding_type: str) -> None:
                 height=280,
             )
             fig_bar.update_xaxes(tickangle=-30)
-            st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
+            st.plotly_chart(fig_bar, width="stretch", config={"displayModeBar": False})
     else:
         st.info("No players matching the criteria found. Try a broader search description or budget.")
 
