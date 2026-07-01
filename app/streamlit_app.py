@@ -699,16 +699,22 @@ def get_player_image_url(row: pd.Series, player_name: str) -> str:
     Resolve the best image URL for a player.
     Priority:
     1. TheSportsDB CDN URL (browser-accessible, no hotlink blocking)
-    2. Local file served via Streamlit static serving (app/static/players/)
-       — only if it maps to an individual player photo
-    3. Styled SVG initials avatar fallback (always works, looks premium)
+    2. Wikipedia/Wikimedia URL (direct Commons link, works in browsers)
+    3. Local file served via Streamlit static serving (app/static/players/)
+    4. Styled SVG initials avatar fallback (always works, looks premium)
     """
     # 1. TheSportsDB URL - freely browser-accessible CDN (works on Cloud too)
     sdb_url = row.get("sportsdb_image_url")
     if sdb_url and isinstance(sdb_url, str) and sdb_url.strip().startswith("http"):
         return sdb_url.strip()
 
-    # 2. Check local downloaded image (Streamlit static file serving)
+    # 2. Wikipedia/Wikimedia URL - direct Commons link (works in browsers)
+    wiki_url = row.get("image_url")
+    if wiki_url and isinstance(wiki_url, str) and wiki_url.strip().startswith("http"):
+        if _is_valid_player_image(wiki_url):
+            return wiki_url.strip()
+
+    # 3. Check local downloaded image (Streamlit static file serving)
     #    Only works when running locally or if images are committed to repo
     local_path = row.get("local_image_path")
     if local_path and isinstance(local_path, str):
@@ -727,7 +733,7 @@ def get_player_image_url(row: pd.Series, player_name: str) -> str:
                 if full_path.exists():
                     return "/" + local_path
 
-    # 3. Premium SVG initials avatar fallback (always works, no external deps)
+    # 4. Premium SVG initials avatar fallback (always works, no external deps)
     return get_player_avatar_svg(player_name)
 
 
